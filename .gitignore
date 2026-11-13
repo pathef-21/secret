@@ -1,0 +1,43 @@
+# Environment files
+.env
+.env.local
+.env.*.local
+*.env
+
+# Python
+backend/venv/
+backend/.venv/
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+backend/media/
+backend/staticfiles/
+*.sqlite3
+*.log
+
+# Node & Expo
+mobile/node_modules/
+node_modules/
+.expo/
+mobile/.expo/
+dist/
+web-build/
+*.tsbuildinfo
+
+# Native builds
+*.orig.*
+mobile/android/
+mobile/ios/
+*.apk
+*.aab
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+

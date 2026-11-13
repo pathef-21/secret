@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: man-ak-bae-backend
+    env: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
+    startCommand: python manage.py migrate && python manage.py seed_games && daphne -b 0.0.0.0 -p $PORT config.asgi:application
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.0
+      - key: DEBUG
+        value: "False"
+      - key: TIME_ZONE
+        value: "Africa/Dakar"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: manakbae-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: manakbae-redis
+          property: connectionString
+      - key: USE_REDIS_CHANNEL_LAYER
+        value: "True"
+
+databases:
+  - name: manakbae-db
+    databaseName: manakbae_db
+    user: postgres
+    plan: free
+
