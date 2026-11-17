@@ -20,6 +20,6 @@ RUN python manage.py collectstatic --noinput || true
 
 EXPOSE 8000
 
-# Utilisation de daphne pour supporter HTTP + WebSockets en production
-CMD ["daphne", "-b", "0.0.0.0", "-p", "8000", "config.asgi:application"]
+# Utilisation de daphne pour supporter HTTP + WebSockets en production (compatible port dynamique cloud)
+CMD ["sh", "-c", "python manage.py migrate && python manage.py seed_games && daphne -b 0.0.0.0 -p ${PORT:-8000} config.asgi:application"]
 

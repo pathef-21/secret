@@ -1,0 +1,1308 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Man Ak Bae ❤️ — Votre espace d'amour privé</title>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+  <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+  <style>
+    :root {
+      --deep-black: #17151C;
+      --surface: #201D27;
+      --surface-elevated: #282433;
+      --surface-border: #353043;
+      --primary-rose: #F2A7C6;
+      --light-rose: #FCE4ED;
+      --violet: #A78BFA;
+      --off-white: #FFF9F7;
+      --text-secondary: #A9A4B8;
+      --text-muted: #6E6882;
+      --accent-heart: #FF4D6D;
+      --flame-orange: #FF8833;
+      --success: #4ADE80;
+      --error: #F87171;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: #0e0c12;
+      background-image: radial-gradient(circle at 50% 0%, rgba(242, 167, 198, 0.14), transparent 55%),
+                        radial-gradient(circle at 85% 90%, rgba(167, 139, 250, 0.12), transparent 50%);
+      color: var(--off-white);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    /* Mobile App Shell */
+    .app-shell {
+      width: 100%;
+      max-width: 440px;
+      height: 100vh;
+      max-height: 920px;
+      background-color: var(--deep-black);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 25px 70px rgba(0, 0, 0, 0.75), 0 0 0 1px var(--surface-border);
+    }
+
+    @media (min-width: 500px) {
+      .app-shell {
+        height: 92vh;
+        border-radius: 36px;
+      }
+    }
+
+    /* Views & Screens */
+    .screen {
+      display: none;
+      flex: 1;
+      flex-direction: column;
+      overflow-y: auto;
+      padding: 20px 18px 90px 18px;
+      animation: fadeIn 0.25s ease;
+    }
+    .screen.active {
+      display: flex;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Top Header */
+    .top-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+    .brand-title {
+      font-size: 22px;
+      font-weight: 800;
+      background: linear-gradient(90deg, var(--primary-rose), var(--violet));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .brand-sub {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+    .icon-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 14px;
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      color: var(--primary-rose);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .icon-btn:hover {
+      background: var(--surface-elevated);
+      transform: scale(1.04);
+    }
+
+    /* Cards & Inputs */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: 22px;
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+    .input-group {
+      display: flex;
+      align-items: center;
+      background: var(--surface-elevated);
+      border: 1px solid var(--surface-border);
+      border-radius: 16px;
+      padding: 0 14px;
+      margin-bottom: 12px;
+      transition: border 0.2s;
+    }
+    .input-group:focus-within {
+      border-color: var(--primary-rose);
+    }
+    .input-group ion-icon {
+      font-size: 20px;
+      color: var(--primary-rose);
+      margin-right: 10px;
+    }
+    .input-group input, .input-group textarea, .input-group select {
+      width: 100%;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--off-white);
+      padding: 14px 0;
+      font-size: 14px;
+    }
+    .input-group textarea {
+      resize: none;
+      min-height: 80px;
+    }
+
+    .btn-primary {
+      width: 100%;
+      background: linear-gradient(135deg, var(--primary-rose), var(--violet));
+      color: var(--deep-black);
+      font-weight: 700;
+      font-size: 15px;
+      padding: 15px;
+      border: none;
+      border-radius: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: opacity 0.2s, transform 0.15s;
+    }
+    .btn-primary:active {
+      transform: scale(0.98);
+    }
+    .btn-secondary {
+      width: 100%;
+      background: var(--surface-elevated);
+      color: var(--primary-rose);
+      border: 1px solid var(--surface-border);
+      font-weight: 600;
+      font-size: 14px;
+      padding: 13px;
+      border-radius: 16px;
+      cursor: pointer;
+      text-align: center;
+    }
+
+    /* Love Match Card */
+    .love-match-card {
+      background: linear-gradient(145deg, #251e30, #1c1824);
+      border: 1px solid rgba(242, 167, 198, 0.25);
+      border-radius: 24px;
+      padding: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      position: relative;
+    }
+    .partner-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 34%;
+    }
+    .avatar-circle {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: var(--surface-elevated);
+      border: 2px solid var(--primary-rose);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--primary-rose);
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    .avatar-circle img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .partner-name {
+      font-size: 14px;
+      font-weight: 700;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+    .love-pulse {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .heart-beat {
+      font-size: 28px;
+      animation: pulse 1.6s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.18); }
+    }
+    .days-count {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--primary-rose);
+      margin-top: 4px;
+    }
+    .days-sub {
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    /* Flame Streak Card */
+    .flame-card {
+      background: linear-gradient(135deg, rgba(255, 136, 51, 0.16), rgba(242, 167, 198, 0.1));
+      border: 1px solid rgba(255, 136, 51, 0.35);
+      border-radius: 22px;
+      padding: 16px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .flame-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .flame-emoji {
+      font-size: 36px;
+    }
+    .flame-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: #FF9E44;
+    }
+    .flame-sub {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+    .badge {
+      padding: 6px 11px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 700;
+      background: rgba(242, 167, 198, 0.15);
+      color: var(--primary-rose);
+    }
+
+    /* Quick Actions Grid */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .shortcut-card {
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: 20px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      cursor: pointer;
+      transition: 0.2s;
+    }
+    .shortcut-card:hover {
+      border-color: var(--primary-rose);
+      transform: translateY(-2px);
+    }
+    .shortcut-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      background: rgba(242, 167, 198, 0.12);
+      color: var(--primary-rose);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+    }
+
+    /* Chat Interface */
+    .chat-container {
+      display: flex;
+      flex-direction: column;
+      height: calc(100vh - 150px);
+      max-height: 750px;
+    }
+    .messages-list {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column-reverse;
+      gap: 10px;
+      padding: 10px 4px;
+    }
+    .msg-bubble {
+      max-width: 78%;
+      padding: 12px 15px;
+      border-radius: 20px;
+      font-size: 14px;
+      line-height: 1.45;
+      position: relative;
+      word-wrap: break-word;
+    }
+    .msg-mine {
+      align-self: flex-end;
+      background: linear-gradient(135deg, var(--primary-rose), #e08ab0);
+      color: var(--deep-black);
+      font-weight: 500;
+      border-bottom-right-radius: 4px;
+    }
+    .msg-theirs {
+      align-self: flex-start;
+      background: var(--surface-elevated);
+      color: var(--off-white);
+      border: 1px solid var(--surface-border);
+      border-bottom-left-radius: 4px;
+    }
+    .msg-time {
+      font-size: 10px;
+      opacity: 0.7;
+      margin-top: 4px;
+      display: block;
+      text-align: right;
+    }
+    .chat-input-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      padding: 8px 12px;
+      border-radius: 24px;
+      margin-top: 8px;
+    }
+    .chat-input-bar input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--off-white);
+      font-size: 14px;
+    }
+
+    /* Bottom Navigation */
+    .bottom-nav {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 68px;
+      background: rgba(32, 29, 39, 0.95);
+      backdrop-filter: blur(12px);
+      border-top: 1px solid var(--surface-border);
+      display: none;
+      justify-content: space-around;
+      align-items: center;
+      padding: 0 8px;
+      z-index: 20;
+    }
+    .bottom-nav.visible {
+      display: flex;
+    }
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 600;
+      gap: 4px;
+      cursor: pointer;
+      padding: 6px 12px;
+      border-radius: 14px;
+      transition: 0.2s;
+    }
+    .nav-item ion-icon {
+      font-size: 22px;
+    }
+    .nav-item.active {
+      color: var(--primary-rose);
+    }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(4px);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 100;
+      padding: 18px;
+    }
+    .modal-overlay.open {
+      display: flex;
+    }
+    .modal-box {
+      width: 100%;
+      max-width: 400px;
+      background: var(--surface);
+      border: 1px solid var(--surface-border);
+      border-radius: 26px;
+      padding: 22px;
+      max-height: 85vh;
+      overflow-y: auto;
+    }
+
+    /* Toast */
+    .toast {
+      position: absolute;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--surface-elevated);
+      border: 1px solid var(--primary-rose);
+      color: var(--off-white);
+      padding: 10px 18px;
+      border-radius: 14px;
+      font-size: 13px;
+      font-weight: 600;
+      z-index: 200;
+      display: none;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-shell">
+  <div id="toast" class="toast"></div>
+
+  <!-- ================= AUTH SCREEN ================= -->
+  <div id="screen-auth" class="screen active" style="justify-content: center; padding-bottom: 30px;">
+    <div style="text-align: center; margin-bottom: 28px;">
+      <div style="font-size: 52px; margin-bottom: 8px;">❤️</div>
+      <h1 class="brand-title" style="font-size: 30px;">Man Ak Bae</h1>
+      <p class="brand-sub">Votre sanctuaire d'amour privé et sécurisé</p>
+    </div>
+
+    <!-- Login Card -->
+    <div id="auth-login-box" class="card">
+      <h2 style="font-size: 19px; margin-bottom: 16px;">Connexion</h2>
+      <div class="input-group">
+        <ion-icon name="mail-outline"></ion-icon>
+        <input type="email" id="login-email" placeholder="Adresse email" />
+      </div>
+      <div class="input-group">
+        <ion-icon name="lock-closed-outline"></ion-icon>
+        <input type="password" id="login-password" placeholder="Mot de passe" />
+      </div>
+      <button class="btn-primary" onclick="handleLogin()">Se connecter</button>
+      <p style="text-align: center; font-size: 13px; color: var(--text-secondary); margin-top: 16px;">
+        Nouveau sur Man Ak Bae ? <span style="color: var(--primary-rose); font-weight: 700; cursor: pointer;" onclick="toggleAuthMode('register')">Créer un compte</span>
+      </p>
+    </div>
+
+    <!-- Register Card -->
+    <div id="auth-register-box" class="card" style="display: none;">
+      <h2 style="font-size: 19px; margin-bottom: 16px;">Créer mon compte ❤️</h2>
+      <div class="input-group">
+        <ion-icon name="person-outline"></ion-icon>
+        <input type="text" id="reg-firstname" placeholder="Prénom" />
+      </div>
+      <div class="input-group">
+        <ion-icon name="heart-outline"></ion-icon>
+        <input type="text" id="reg-nickname" placeholder="Surnom amoureux (ex: Mon Roi, Bae)" />
+      </div>
+      <div class="input-group">
+        <ion-icon name="at-outline"></ion-icon>
+        <input type="text" id="reg-username" placeholder="Nom d'utilisateur" />
+      </div>
+      <div class="input-group">
+        <ion-icon name="mail-outline"></ion-icon>
+        <input type="email" id="reg-email" placeholder="Adresse email" />
+      </div>
+      <div class="input-group">
+        <ion-icon name="lock-closed-outline"></ion-icon>
+        <input type="password" id="reg-password" placeholder="Mot de passe (8+ caractères)" />
+      </div>
+      <button class="btn-primary" onclick="handleRegister()">S'inscrire</button>
+      <p style="text-align: center; font-size: 13px; color: var(--text-secondary); margin-top: 16px;">
+        Déjà inscrit ? <span style="color: var(--primary-rose); font-weight: 700; cursor: pointer;" onclick="toggleAuthMode('login')">Se connecter</span>
+      </p>
+    </div>
+  </div>
+
+  <!-- ================= COUPLE SETUP SCREEN ================= -->
+  <div id="screen-couple-setup" class="screen">
+    <div style="text-align: center; margin: 20px 0 24px;">
+      <div style="font-size: 46px;">💍</div>
+      <h2 style="font-size: 23px; font-weight: 800; margin-top: 6px;">Votre Espace à Deux</h2>
+      <p class="brand-sub">Créez votre bulle privée ou rejoignez votre partenaire avec son code.</p>
+    </div>
+
+    <div class="card">
+      <h3 style="font-size: 16px; margin-bottom: 12px; color: var(--primary-rose);">✨ Créer notre espace de couple</h3>
+      <div class="input-group">
+        <ion-icon name="hearts-outline"></ion-icon>
+        <input type="text" id="couple-name-input" value="Man Ak Bae ❤️" placeholder="Nom du couple" />
+      </div>
+      <div class="input-group">
+        <ion-icon name="calendar-outline"></ion-icon>
+        <input type="date" id="couple-date-input" title="Date de début de relation" />
+      </div>
+      <button class="btn-primary" onclick="handleCreateCouple()">Créer & Générer un code</button>
+
+      <div id="invite-code-display" style="display: none; margin-top: 16px; padding: 14px; background: var(--surface-elevated); border-radius: 16px; text-align: center; border: 1px dashed var(--primary-rose);">
+        <p style="font-size: 12px; color: var(--text-secondary);">Partagez ce code secret avec votre moitié :</p>
+        <div id="generated-code-text" style="font-size: 22px; font-weight: 800; letter-spacing: 3px; color: var(--primary-rose); margin: 8px 0;"></div>
+        <button class="btn-secondary" onclick="enterDashboard()">Accéder à l'application</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="font-size: 16px; margin-bottom: 12px; color: var(--violet);">🔑 J'ai un code d'invitation</h3>
+      <div class="input-group">
+        <ion-icon name="key-outline"></ion-icon>
+        <input type="text" id="join-code-input" placeholder="Ex: BAE-849201" />
+      </div>
+      <button class="btn-secondary" onclick="handleJoinCouple()">Rejoindre mon partenaire</button>
+    </div>
+
+    <button class="btn-secondary" style="margin-top: auto;" onclick="handleLogout()">Se déconnecter</button>
+  </div>
+
+  <!-- ================= TAB 1: HOME DASHBOARD ================= -->
+  <div id="screen-home" class="screen">
+    <div class="top-bar">
+      <div>
+        <div class="brand-title">Man Ak Bae ❤️</div>
+        <div class="brand-sub" id="home-couple-title">Notre bulle d'amour</div>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button class="icon-btn" onclick="openLettersModal()" title="Lettres d'amour">
+          <ion-icon name="mail-unread-outline"></ion-icon>
+        </button>
+        <button class="icon-btn" onclick="openProfileModal()" title="Mon Profil">
+          <ion-icon name="person-circle-outline"></ion-icon>
+        </button>
+      </div>
+    </div>
+
+    <!-- Love Match Card -->
+    <div class="love-match-card">
+      <div class="partner-col">
+        <div class="avatar-circle" id="home-me-avatar">M</div>
+        <div class="partner-name" id="home-me-name">Moi</div>
+      </div>
+      <div class="love-pulse">
+        <div class="heart-beat">❤️</div>
+        <div class="days-count" id="home-days-count">0 jours</div>
+        <div class="days-sub">ensemble</div>
+      </div>
+      <div class="partner-col">
+        <div class="avatar-circle" id="home-partner-avatar">?</div>
+        <div class="partner-name" id="home-partner-name">En attente...</div>
+      </div>
+    </div>
+
+    <!-- Invite Code Banner if partner not joined yet -->
+    <div id="home-invite-banner" class="card" style="display: none; border-color: var(--primary-rose);">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <div style="font-size: 13px; font-weight: 700; color: var(--primary-rose);">Invitez votre Bae ❤️</div>
+          <div style="font-size: 12px; color: var(--text-secondary);">Générez un code pour connecter vos 2 comptes</div>
+        </div>
+        <button class="btn-secondary" style="width: auto; padding: 8px 14px;" onclick="generateNewInvite()">Code</button>
+      </div>
+      <div id="home-invite-code-box" style="display:none; margin-top: 10px; font-weight: 800; font-size: 18px; color: var(--off-white); text-align: center; padding: 8px; background: var(--surface-elevated); border-radius: 12px;"></div>
+    </div>
+
+    <!-- Flame Streak -->
+    <div class="flame-card">
+      <div class="flame-left">
+        <div class="flame-emoji">❤️‍🔥</div>
+        <div>
+          <div class="flame-title"><span id="home-flame-streak">0</span> Flammes</div>
+          <div class="flame-sub">Record : <span id="home-flame-best">0</span> jours consécutifs</div>
+        </div>
+      </div>
+      <span class="badge" id="home-flame-status">Parlez-vous !</span>
+    </div>
+
+    <!-- Quote of the day -->
+    <div class="card" style="background: rgba(242, 167, 198, 0.07); border-color: rgba(242, 167, 198, 0.2);">
+      <div style="font-size: 11px; font-weight: 700; color: var(--primary-rose); text-transform: uppercase; margin-bottom: 6px;">✨ Pensée romantique du jour</div>
+      <p id="home-quote" style="font-size: 13.5px; font-style: italic; color: var(--light-rose); line-height: 1.5;">
+        « Deux âmes, un seul cœur : Man Ak Bae ❤️ »
+      </p>
+    </div>
+
+    <!-- Shortcuts -->
+    <div class="grid-2">
+      <div class="shortcut-card" onclick="openLettersModal()">
+        <div class="shortcut-icon"><ion-icon name="mail-open-outline"></ion-icon></div>
+        <div style="font-weight: 700; font-size: 14px;">Lettres & Surprises</div>
+        <div style="font-size: 11px; color: var(--text-secondary);">Capsules temporelles</div>
+      </div>
+      <div class="shortcut-card" onclick="switchTab('games')">
+        <div class="shortcut-icon"><ion-icon name="sparkles-outline"></ion-icon></div>
+        <div style="font-weight: 700; font-size: 14px;">Jeux à Deux</div>
+        <div style="font-size: 11px; color: var(--text-secondary);">7 jeux amoureux</div>
+      </div>
+    </div>
+
+    <!-- Next Event Preview -->
+    <div class="card">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <span style="font-size: 14px; font-weight: 700;">📅 Prochain Rendez-vous</span>
+        <span style="font-size: 12px; color: var(--primary-rose); cursor: pointer;" onclick="switchTab('calendar')">Voir tout</span>
+      </div>
+      <div id="home-next-event" style="font-size: 13px; color: var(--text-secondary);">
+        Aucun événement planifié. Ajoutez votre prochain rendez-vous !
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= TAB 2: CHAT ================= -->
+  <div id="screen-chat" class="screen">
+    <div class="top-bar">
+      <div>
+        <div class="brand-title" style="font-size: 19px;">Messagerie Privée 💬</div>
+        <div class="brand-sub" id="chat-status-sub">Chiffré & réservé à votre couple</div>
+      </div>
+      <button class="icon-btn" onclick="sendQuickHeart()" title="Envoyer un coup de cœur">❤️</button>
+    </div>
+
+    <div class="chat-container">
+      <div id="chat-messages" class="messages-list"></div>
+      <div class="chat-input-bar">
+        <input type="text" id="chat-input" placeholder="Écrire un mot doux à Bae..." onkeypress="if(event.key==='Enter') sendChatMessage()" />
+        <button class="icon-btn" style="width: 36px; height: 36px; border-radius: 50%; background: var(--primary-rose); color: var(--deep-black);" onclick="sendChatMessage()">
+          <ion-icon name="send"></ion-icon>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= TAB 3: GAMES ================= -->
+  <div id="screen-games" class="screen">
+    <div class="top-bar">
+      <div>
+        <div class="brand-title">Jeux pour Deux 🎲</div>
+        <div class="brand-sub">Renforcez votre complicité amoureuse</div>
+      </div>
+    </div>
+    <div id="games-list-container"></div>
+  </div>
+
+  <!-- ================= TAB 4: MEMORIES ================= -->
+  <div id="screen-memories" class="screen">
+    <div class="top-bar">
+      <div>
+        <div class="brand-title">Nos Souvenirs 📸</div>
+        <div class="brand-sub">L'album secret de notre histoire</div>
+      </div>
+      <button class="icon-btn" onclick="openMemoryModal()">
+        <ion-icon name="add"></ion-icon>
+      </button>
+    </div>
+    <div id="memories-list-container"></div>
+  </div>
+
+  <!-- ================= TAB 5: CALENDAR ================= -->
+  <div id="screen-calendar" class="screen">
+    <div class="top-bar">
+      <div>
+        <div class="brand-title">Agenda du Couple 📅</div>
+        <div class="brand-sub">Rendez-vous, anniversaires & projets</div>
+      </div>
+      <button class="icon-btn" onclick="openEventModal()">
+        <ion-icon name="add"></ion-icon>
+      </button>
+    </div>
+    <div id="calendar-list-container"></div>
+  </div>
+
+  <!-- ================= BOTTOM TAB BAR ================= -->
+  <div id="bottom-nav" class="bottom-nav">
+    <div class="nav-item active" data-tab="home" onclick="switchTab('home')">
+      <ion-icon name="heart"></ion-icon>
+      <span>Accueil</span>
+    </div>
+    <div class="nav-item" data-tab="chat" onclick="switchTab('chat')">
+      <ion-icon name="chatbubbles"></ion-icon>
+      <span>Chat</span>
+    </div>
+    <div class="nav-item" data-tab="games" onclick="switchTab('games')">
+      <ion-icon name="sparkles"></ion-icon>
+      <span>Jeux</span>
+    </div>
+    <div class="nav-item" data-tab="memories" onclick="switchTab('memories')">
+      <ion-icon name="images"></ion-icon>
+      <span>Souvenirs</span>
+    </div>
+    <div class="nav-item" data-tab="calendar" onclick="switchTab('calendar')">
+      <ion-icon name="calendar"></ion-icon>
+      <span>Agenda</span>
+    </div>
+  </div>
+</div>
+
+<!-- ================= MODALS ================= -->
+<div id="modal-overlay" class="modal-overlay" onclick="if(event.target===this) closeModal()">
+  <div id="modal-content" class="modal-box"></div>
+</div>
+
+<script>
+  const API_BASE = '/api';
+  let accessToken = localStorage.getItem('mab_access') || null;
+  let currentUser = null;
+  let currentCouple = null;
+  let ws = null;
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.display = 'block';
+    setTimeout(() => { t.style.display = 'none'; }, 3200);
+  }
+
+  async function apiFetch(endpoint, options = {}) {
+    const headers = options.headers || {};
+    if (!(options.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json';
+    }
+    if (accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken}`;
+    }
+    const res = await fetch(`${API_BASE}${endpoint}`, { ...options, headers });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw data;
+    }
+    return data;
+  }
+
+  function toggleAuthMode(mode) {
+    document.getElementById('auth-login-box').style.display = mode === 'login' ? 'block' : 'none';
+    document.getElementById('auth-register-box').style.display = mode === 'register' ? 'block' : 'none';
+  }
+
+  function showScreen(screenId, showNav = false) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(screenId).classList.add('active');
+    const nav = document.getElementById('bottom-nav');
+    if (showNav) nav.classList.add('visible');
+    else nav.classList.remove('visible');
+  }
+
+  function switchTab(tabName) {
+    document.querySelectorAll('.nav-item').forEach(el => {
+      el.classList.toggle('active', el.dataset.tab === tabName);
+    });
+    showScreen(`screen-${tabName}`, true);
+    if (tabName === 'home') loadDashboard();
+    if (tabName === 'chat') loadMessages();
+    if (tabName === 'games') loadGames();
+    if (tabName === 'memories') loadMemories();
+    if (tabName === 'calendar') loadEvents();
+  }
+
+  // AUTHENTICATION
+  async function handleLogin() {
+    const usernameOrEmail = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    if (!usernameOrEmail || !password) return showToast('Veuillez remplir tous les champs');
+
+    try {
+      const data = await apiFetch('/auth/login/', {
+        method: 'POST',
+        body: JSON.stringify({ email: usernameOrEmail.toLowerCase(), username: usernameOrEmail, password })
+      });
+      accessToken = data.access;
+      localStorage.setItem('mab_access', accessToken);
+      currentUser = data.user;
+      await checkCoupleStatus();
+    } catch (err) {
+      showToast(err.detail || 'Identifiants incorrects');
+    }
+  }
+
+  async function handleRegister() {
+    const first_name = document.getElementById('reg-firstname').value.trim();
+    const nickname = document.getElementById('reg-nickname').value.trim();
+    const username = document.getElementById('reg-username').value.trim();
+    const email = document.getElementById('reg-email').value.trim().toLowerCase();
+    const password = document.getElementById('reg-password').value;
+
+    if (!username || !email || !password) return showToast('Veuillez remplir les champs obligatoires');
+
+    try {
+      const data = await apiFetch('/auth/register/', {
+        method: 'POST',
+        body: JSON.stringify({
+          first_name,
+          nickname,
+          username,
+          email,
+          password,
+          password_confirm: password
+        })
+      });
+      accessToken = data.access;
+      localStorage.setItem('mab_access', accessToken);
+      currentUser = data.user;
+      showScreen('screen-couple-setup', false);
+    } catch (err) {
+      const firstErr = Object.values(err)[0];
+      showToast(Array.isArray(firstErr) ? firstErr[0] : 'Erreur lors de l’inscription');
+    }
+  }
+
+  async function checkCoupleStatus() {
+    try {
+      currentUser = await apiFetch('/auth/me/');
+      try {
+        currentCouple = await apiFetch('/couples/me/');
+        enterDashboard();
+      } catch {
+        showScreen('screen-couple-setup', false);
+      }
+    } catch {
+      localStorage.removeItem('mab_access');
+      accessToken = null;
+      showScreen('screen-auth', false);
+    }
+  }
+
+  async function handleCreateCouple() {
+    const name = document.getElementById('couple-name-input').value.trim() || 'Man Ak Bae ❤️';
+    const startDate = document.getElementById('couple-date-input').value;
+    const payload = { name };
+    if (startDate) payload.relationship_start_date = startDate;
+
+    try {
+      const res = await apiFetch('/couples/create/', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      currentCouple = res.couple;
+      document.getElementById('invite-code-display').style.display = 'block';
+      document.getElementById('generated-code-text').textContent = res.invitation_code;
+      showToast('Espace de couple créé ! ❤️');
+    } catch (err) {
+      showToast(err.detail || 'Impossible de créer le couple');
+    }
+  }
+
+  async function handleJoinCouple() {
+    const code = document.getElementById('join-code-input').value.trim();
+    if (!code) return showToast('Saisissez un code d’invitation');
+    try {
+      await apiFetch('/couples/join/', {
+        method: 'POST',
+        body: JSON.stringify({ code })
+      });
+      showToast('Félicitations ! Vous avez rejoint votre Bae ❤️');
+      enterDashboard();
+    } catch (err) {
+      showToast(err.detail || 'Code invalide ou expiré');
+    }
+  }
+
+  function enterDashboard() {
+    connectWebSocket();
+    switchTab('home');
+  }
+
+  function handleLogout() {
+    localStorage.removeItem('mab_access');
+    accessToken = null;
+    if (ws) ws.close();
+    showScreen('screen-auth', false);
+  }
+
+  // DASHBOARD
+  async function loadDashboard() {
+    try {
+      const d = await apiFetch('/couples/dashboard/');
+      document.getElementById('home-couple-title').textContent = d.couple?.name || "Notre bulle d'amour";
+      document.getElementById('home-days-count').textContent = `${d.couple?.relationship_days || 0} jours`;
+
+      const meName = d.user?.profile?.nickname || d.user?.first_name || d.user?.username || 'Moi';
+      document.getElementById('home-me-name').textContent = meName;
+      document.getElementById('home-me-avatar').textContent = meName[0].toUpperCase();
+
+      if (d.partner) {
+        const pName = d.partner?.profile?.nickname || d.partner?.first_name || d.partner?.username || 'Bae';
+        document.getElementById('home-partner-name').textContent = pName;
+        document.getElementById('home-partner-avatar').textContent = pName[0].toUpperCase();
+        document.getElementById('home-invite-banner').style.display = 'none';
+      } else {
+        document.getElementById('home-partner-name').textContent = 'En attente...';
+        document.getElementById('home-partner-avatar').textContent = '?';
+        document.getElementById('home-invite-banner').style.display = 'block';
+      }
+
+      document.getElementById('home-flame-streak').textContent = d.flame?.current_streak || 0;
+      document.getElementById('home-flame-best').textContent = d.flame?.longest_streak || 0;
+      document.getElementById('home-flame-status').textContent = d.flame?.is_lit_today ? 'Allumée aujourd’hui 🔥' : 'Envoyez un message 💬';
+
+      if (d.quote_of_the_day) {
+        document.getElementById('home-quote').textContent = d.quote_of_the_day;
+      }
+
+      if (d.next_event) {
+        const dt = new Date(d.next_event.start_time).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' });
+        document.getElementById('home-next-event').innerHTML = `<strong style="color:var(--off-white)">${d.next_event.title}</strong> — ${dt}`;
+      }
+    } catch (e) {
+      console.warn(e);
+    }
+  }
+
+  async function generateNewInvite() {
+    try {
+      const res = await apiFetch('/couples/invite/', { method: 'POST' });
+      const box = document.getElementById('home-invite-code-box');
+      box.style.display = 'block';
+      box.textContent = `Code : ${res.code}`;
+    } catch (e) {
+      showToast(e.detail || 'Erreur');
+    }
+  }
+
+  // CHAT & WEBSOCKET
+  function connectWebSocket() {
+    if (!accessToken) return;
+    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    ws = new WebSocket(`${proto}://${window.location.host}/ws/chat/?token=${accessToken}`);
+    ws.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.type === 'new_message') {
+          loadMessages();
+        }
+      } catch {}
+    };
+  }
+
+  async function loadMessages() {
+    try {
+      const res = await apiFetch('/chat/messages/');
+      const list = res.results || res;
+      const container = document.getElementById('chat-messages');
+      if (!list.length) {
+        container.innerHTML = `<div style="text-align:center; color:var(--text-muted); margin:auto;">Aucun message. Écrivez votre premier mot d'amour ❤️</div>`;
+        return;
+      }
+      container.innerHTML = list.map(m => {
+        const mine = m.sender?.id === currentUser?.id;
+        const time = new Date(m.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        return `
+          <div class="msg-bubble ${mine ? 'msg-mine' : 'msg-theirs'}">
+            <div>${m.content || (m.message_type === 'heart' ? '❤️' : '')}</div>
+            <span class="msg-time">${time}</span>
+          </div>
+        `;
+      }).join('');
+    } catch (e) {
+      console.warn(e);
+    }
+  }
+
+  async function sendChatMessage() {
+    const input = document.getElementById('chat-input');
+    const content = input.value.trim();
+    if (!content) return;
+    input.value = '';
+    try {
+      await apiFetch('/chat/send/', {
+        method: 'POST',
+        body: JSON.stringify({ message_type: 'text', content })
+      });
+      loadMessages();
+    } catch {
+      showToast('Erreur d’envoi');
+    }
+  }
+
+  async function sendQuickHeart() {
+    try {
+      await apiFetch('/chat/send/', {
+        method: 'POST',
+        body: JSON.stringify({ message_type: 'heart', content: '❤️ Je pense à toi !' })
+      });
+      loadMessages();
+      showToast('Coup de cœur envoyé ❤️');
+    } catch {}
+  }
+
+  // GAMES
+  async function loadGames() {
+    try {
+      const games = await apiFetch('/games/list/');
+      const container = document.getElementById('games-list-container');
+      container.innerHTML = games.map(g => `
+        <div class="card" style="display:flex; align-items:center; justify-content:space-between; cursor:pointer;" onclick="playGame('${g.id}', '${g.title.replace(/'/g, "\\'")}')">
+          <div style="padding-right: 12px;">
+            <div style="font-weight:700; font-size:15px; color:var(--primary-rose); margin-bottom:4px;">${g.title}</div>
+            <div style="font-size:12px; color:var(--text-secondary);">${g.description}</div>
+          </div>
+          <div class="shortcut-icon"><ion-icon name="${g.icon || 'sparkles-outline'}"></ion-icon></div>
+        </div>
+      `).join('');
+    } catch {}
+  }
+
+  async function playGame(gameId, gameTitle) {
+    try {
+      const session = await apiFetch('/games/sessions/', {
+        method: 'POST',
+        body: JSON.stringify({ game_type: gameId })
+      });
+      const q = await apiFetch(`/games/question/${gameId}/`);
+      openModal(`
+        <h3 style="color:var(--primary-rose); margin-bottom:8px;">${gameTitle}</h3>
+        <div class="card" style="background:var(--surface-elevated); margin: 14px 0;">
+          <p style="font-size:15px; font-weight:600; line-height:1.5;">${q.question_text}</p>
+        </div>
+        <div class="input-group">
+          <textarea id="game-answer-input" placeholder="Votre réponse amoureuse..."></textarea>
+        </div>
+        <button class="btn-primary" onclick="submitGameAnswer('${session.id}', '${q.id}')">Envoyer ma réponse ❤️</button>
+      `);
+    } catch {
+      showToast('Aucune question disponible');
+    }
+  }
+
+  async function submitGameAnswer(sessionId, questionId) {
+    const ans = document.getElementById('game-answer-input').value.trim();
+    if (!ans) return showToast('Écrivez une réponse');
+    try {
+      await apiFetch(`/games/sessions/${sessionId}/answer/`, {
+        method: 'POST',
+        body: JSON.stringify({ question_id: questionId, answer_text: ans })
+      });
+      closeModal();
+      showToast('Réponse enregistrée ! ❤️');
+    } catch {
+      showToast('Erreur');
+    }
+  }
+
+  // MEMORIES
+  async function loadMemories() {
+    try {
+      const res = await apiFetch('/memories/items/');
+      const list = res.results || res;
+      const container = document.getElementById('memories-list-container');
+      if (!list.length) {
+        container.innerHTML = `<div class="card" style="text-align:center; color:var(--text-secondary);">Aucun souvenir pour l'instant. Cliquez sur + pour immortaliser un moment 📸</div>`;
+        return;
+      }
+      container.innerHTML = list.map(m => `
+        <div class="card">
+          ${m.media_file ? `<img src="${m.media_file}" style="width:100%; max-height:240px; object-fit:cover; border-radius:14px; margin-bottom:10px;" />` : ''}
+          <div style="font-weight:700; font-size:16px;">${m.title}</div>
+          <div style="font-size:12px; color:var(--primary-rose); margin: 3px 0 8px;">📍 ${m.location || 'Notre moment'} • ${m.memory_date}</div>
+          <p style="font-size:13px; color:var(--text-secondary);">${m.description || ''}</p>
+        </div>
+      `).join('');
+    } catch {}
+  }
+
+  function openMemoryModal() {
+    const today = new Date().toISOString().split('T')[0];
+    openModal(`
+      <h3 style="margin-bottom:14px;">Nouveau Souvenir 📸</h3>
+      <div class="input-group"><input type="text" id="mem-title" placeholder="Titre du souvenir" /></div>
+      <div class="input-group"><input type="text" id="mem-location" placeholder="Lieu (ex: Dakar, Corniche)" /></div>
+      <div class="input-group"><input type="date" id="mem-date" value="${today}" /></div>
+      <div class="input-group"><textarea id="mem-desc" placeholder="Racontez ce moment..."></textarea></div>
+      <div class="input-group"><input type="file" id="mem-file" accept="image/*,video/*" /></div>
+      <button class="btn-primary" onclick="createMemory()">Enregistrer le souvenir</button>
+    `);
+  }
+
+  async function createMemory() {
+    const title = document.getElementById('mem-title').value.trim();
+    const fileInput = document.getElementById('mem-file');
+    if (!title || !fileInput.files[0]) return showToast('Titre et photo requis');
+
+    const fd = new FormData();
+    fd.append('title', title);
+    fd.append('location', document.getElementById('mem-location').value.trim());
+    fd.append('memory_date', document.getElementById('mem-date').value);
+    fd.append('description', document.getElementById('mem-desc').value.trim());
+    fd.append('media_type', 'image');
+    fd.append('media_file', fileInput.files[0]);
+
+    try {
+      await apiFetch('/memories/items/', { method: 'POST', body: fd });
+      closeModal();
+      showToast('Souvenir ajouté ! ❤️');
+      loadMemories();
+    } catch {
+      showToast('Erreur lors de l’ajout');
+    }
+  }
+
+  // CALENDAR
+  async function loadEvents() {
+    try {
+      const res = await apiFetch('/calendar/events/?filter=upcoming');
+      const list = res.results || res;
+      const container = document.getElementById('calendar-list-container');
+      if (!list.length) {
+        container.innerHTML = `<div class="card" style="text-align:center; color:var(--text-secondary);">Aucun rendez-vous prévu. Planifiez votre prochaine sortie ! 🥂</div>`;
+        return;
+      }
+      container.innerHTML = list.map(ev => {
+        const dt = new Date(ev.start_time).toLocaleString('fr-FR', { dateStyle: 'full', timeStyle: 'short' });
+        return `
+          <div class="card">
+            <div style="font-weight:700; font-size:15px; color:var(--primary-rose);">${ev.title}</div>
+            <div style="font-size:12px; color:var(--off-white); margin:4px 0;">🗓️ ${dt}</div>
+            ${ev.location ? `<div style="font-size:12px; color:var(--text-secondary);">📍 ${ev.location}</div>` : ''}
+            ${ev.description ? `<p style="font-size:12.5px; color:var(--text-secondary); margin-top:6px;">${ev.description}</p>` : ''}
+          </div>
+        `;
+      }).join('');
+    } catch {}
+  }
+
+  function openEventModal() {
+    const today = new Date().toISOString().split('T')[0];
+    openModal(`
+      <h3 style="margin-bottom:14px;">Nouveau Rendez-vous 📅</h3>
+      <div class="input-group"><input type="text" id="ev-title" placeholder="Titre (ex: Dîner romantique)" /></div>
+      <div class="input-group"><input type="text" id="ev-location" placeholder="Lieu" /></div>
+      <div class="input-group"><input type="date" id="ev-date" value="${today}" /></div>
+      <div class="input-group"><input type="time" id="ev-time" value="20:00" /></div>
+      <div class="input-group"><textarea id="ev-desc" placeholder="Notes ou surprise..."></textarea></div>
+      <button class="btn-primary" onclick="createEvent()">Planifier</button>
+    `);
+  }
+
+  async function createEvent() {
+    const title = document.getElementById('ev-title').value.trim();
+    const d = document.getElementById('ev-date').value;
+    const t = document.getElementById('ev-time').value;
+    if (!title || !d || !t) return showToast('Titre, date et heure requis');
+
+    try {
+      await apiFetch('/calendar/events/', {
+        method: 'POST',
+        body: JSON.stringify({
+          title,
+          location: document.getElementById('ev-location').value.trim(),
+          description: document.getElementById('ev-desc').value.trim(),
+          category: 'date_night',
+          start_time: `${d}T${t}:00Z`
+        })
+      });
+      closeModal();
+      showToast('Rendez-vous enregistré ! 📅');
+      loadEvents();
+    } catch {
+      showToast('Erreur');
+    }
+  }
+
+  // LETTERS MODAL
+  async function openLettersModal() {
+    try {
+      const letters = await apiFetch('/surprises/letters/');
+      const listHtml = letters.length ? letters.map(l => `
+        <div class="card" style="background:var(--surface-elevated); margin-bottom:10px;">
+          <div style="font-weight:700; color:var(--primary-rose);">💌 ${l.title}</div>
+          <p style="font-size:13px; margin-top:6px;">${l.is_unlocked ? l.content : '🔒 Lettre scellée jusqu’au ' + new Date(l.unlock_at).toLocaleDateString('fr-FR')}</p>
+        </div>
+      `).join('') : '<p style="font-size:13px; color:var(--text-secondary); margin-bottom:12px;">Aucune lettre pour le moment.</p>';
+
+      openModal(`
+        <h3 style="margin-bottom:12px;">Lettres d'Amour 💌</h3>
+        <div style="max-height:200px; overflow-y:auto; margin-bottom:14px;">${listHtml}</div>
+        <h4 style="font-size:14px; margin-bottom:8px;">Écrire une lettre à Bae</h4>
+        <div class="input-group"><input type="text" id="let-title" placeholder="Objet de la lettre" /></div>
+        <div class="input-group"><textarea id="let-content" placeholder="Mon amour..."></textarea></div>
+        <button class="btn-primary" onclick="sendLetter()">Envoyer la lettre ❤️</button>
+      `);
+    } catch {}
+  }
+
+  async function sendLetter() {
+    const title = document.getElementById('let-title').value.trim();
+    const content = document.getElementById('let-content').value.trim();
+    if (!title || !content) return showToast('Veuillez remplir le titre et le message');
+    try {
+      await apiFetch('/surprises/letters/', {
+        method: 'POST',
+        body: JSON.stringify({ title, content })
+      });
+      closeModal();
+      showToast('Lettre envoyée avec amour 💌');
+    } catch (e) {
+      showToast(e.detail || 'Votre partenaire doit rejoindre le couple d’abord');
+    }
+  }
+
+  // PROFILE MODAL
+  function openProfileModal() {
+    openModal(`
+      <h3 style="margin-bottom:12px;">Mon Profil ❤️</h3>
+      <p style="font-size:13px; color:var(--text-secondary); margin-bottom:14px;">
+        Connecté en tant que <strong style="color:var(--off-white)">${currentUser?.email || ''}</strong>
+      </p>
+      <div class="input-group">
+        <input type="text" id="prof-nickname" value="${currentUser?.profile?.nickname || ''}" placeholder="Mon surnom amoureux" />
+      </div>
+      <button class="btn-primary" style="margin-bottom:10px;" onclick="saveProfile()">Enregistrer</button>
+      <button class="btn-secondary" onclick="closeModal(); handleLogout();">Se déconnecter</button>
+    `);
+  }
+
+  async function saveProfile() {
+    const nickname = document.getElementById('prof-nickname').value.trim();
+    try {
+      await apiFetch('/auth/profile/', {
+        method: 'PATCH',
+        body: JSON.stringify({ nickname })
+      });
+      closeModal();
+      showToast('Profil mis à jour ❤️');
+      loadDashboard();
+    } catch {
+      showToast('Erreur');
+    }
+  }
+
+  function openModal(html) {
+    document.getElementById('modal-content').innerHTML = html;
+    document.getElementById('modal-overlay').classList.add('open');
+  }
+  function closeModal() {
+    document.getElementById('modal-overlay').classList.remove('open');
+  }
+
+  // Init
+  if (accessToken) {
+    checkCoupleStatus();
+  }
+</script>
+</body>
+</html>
