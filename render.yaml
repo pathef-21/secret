@@ -25,5 +25,5 @@ services:
 databases:
   - name: manakbae-db
     databaseName: manakbae_db
-    user: postgres
+    user: manakbae_user
     plan: free
