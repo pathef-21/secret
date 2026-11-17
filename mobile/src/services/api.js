@@ -2,11 +2,7 @@ import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
-const DEFAULT_API_URL = Platform.select({
-  android: 'http://10.0.2.2:8000/api',
-  ios: 'http://localhost:8000/api',
-  default: 'http://localhost:8000/api',
-});
+const DEFAULT_API_URL = 'https://man-ak-bae.onrender.com/api';
 
 export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || DEFAULT_API_URL;
 

@@ -1,11 +1,7 @@
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
-const DEFAULT_WS_URL = Platform.select({
-  android: 'ws://10.0.2.2:8000/ws/chat/',
-  ios: 'ws://localhost:8000/ws/chat/',
-  default: 'ws://localhost:8000/ws/chat/',
-});
+const DEFAULT_WS_URL = 'wss://man-ak-bae.onrender.com/ws/chat/';
 
 export const WS_BASE_URL = process.env.EXPO_PUBLIC_WS_URL || DEFAULT_WS_URL;
 
