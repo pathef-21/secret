@@ -10,6 +10,7 @@ import {
   Platform,
   ScrollView,
   Alert,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -49,8 +50,11 @@ export default function LoginScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         {/* Header Romantique */}
         <View style={styles.header}>
-          <Text style={styles.heartIcon}>❤️</Text>
-          <Text style={styles.title}>Man Ak Bae</Text>
+          <Image
+            source={require('../../assets/icon.png')}
+            style={{ width: 112, height: 112, borderRadius: 26, marginBottom: 12 }}
+            resizeMode="contain"
+          />
           <Text style={styles.subtitle}>Votre sanctuaire d'amour privé et sécurisé</Text>
         </View>
 

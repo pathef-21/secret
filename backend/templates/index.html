@@ -1,9 +1,13 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#17151C" />
   <title>Man Ak Bae ❤️ — Votre espace d'amour privé</title>
+  <link rel="icon" type="image/png" href="{% static 'img/favicon.png' %}" />
+  <link rel="apple-touch-icon" href="{% static 'img/logo.png' %}" />
   <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" onload="this.onload=null;this.rel='stylesheet'">
@@ -493,9 +497,8 @@
 
   <!-- ================= AUTH SCREEN ================= -->
   <div id="screen-auth" class="screen active" style="justify-content: center; padding-bottom: 30px;">
-    <div style="text-align: center; margin-bottom: 28px;">
-      <div style="font-size: 52px; margin-bottom: 8px;">❤️</div>
-      <h1 class="brand-title" style="font-size: 30px;">Man Ak Bae</h1>
+    <div style="text-align: center; margin-bottom: 24px;">
+      <img src="{% static 'img/logo.png' %}" alt="Man Ak Bae" style="width: 120px; height: 120px; object-fit: contain; border-radius: 28px; box-shadow: 0 12px 30px rgba(242, 167, 198, 0.22); border: 1px solid rgba(242, 167, 198, 0.25); margin-bottom: 12px;" />
       <p class="brand-sub">Votre sanctuaire d'amour privé et sécurisé</p>
     </div>
 
@@ -588,9 +591,12 @@
   <!-- ================= TAB 1: HOME DASHBOARD ================= -->
   <div id="screen-home" class="screen">
     <div class="top-bar">
-      <div>
-        <div class="brand-title">Man Ak Bae ❤️</div>
-        <div class="brand-sub" id="home-couple-title">Notre bulle d'amour</div>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <img src="{% static 'img/logo.png' %}" alt="Man Ak Bae" style="width: 42px; height: 42px; border-radius: 12px; object-fit: cover; border: 1px solid rgba(242, 167, 198, 0.3);" />
+        <div>
+          <div class="brand-title" style="font-size: 19px;">Man Ak Bae</div>
+          <div class="brand-sub" id="home-couple-title">Notre bulle d'amour</div>
+        </div>
       </div>
       <div style="display: flex; gap: 8px;">
         <button class="icon-btn" onclick="openLettersModal()" title="Lettres d'amour">
