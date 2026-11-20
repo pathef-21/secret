@@ -11,6 +11,11 @@ class GameType(models.TextChoices):
     DEEP_QUESTIONS = 'deep_questions', 'Questions Pour Mieux Se Connaître'
     ROMANTIC_CHALLENGES = 'romantic_challenges', 'Défis Romantiques'
     GUESS_MY_ANSWER = 'guess_my_answer', 'Devine Ma Réponse'
+    NEVER_HAVE_I_EVER = 'never_have_i_ever', 'Je N’ai Jamais'
+    MOST_LIKELY_TO = 'most_likely_to', 'Qui De Nous Deux ?'
+    COMPLETE_SENTENCE = 'complete_sentence', 'Complète Ma Phrase'
+    SPICY_COUPLES = 'spicy_couples', 'Mode Pimenté 🔥'
+    THIS_OR_THAT = 'this_or_that', 'Ceci ou Cela (Rapide)'
 
 class GameQuestion(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

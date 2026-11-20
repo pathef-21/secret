@@ -4,9 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Man Ak Bae ❤️ — Votre espace d'amour privé</title>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
-  <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+  <script type="module" defer src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+  <script nomodule defer src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
   <style>
     :root {
       --deep-black: #17151C;
@@ -506,9 +508,9 @@
       </div>
       <div class="input-group">
         <ion-icon name="lock-closed-outline"></ion-icon>
-        <input type="password" id="login-password" placeholder="Mot de passe" />
+        <input type="password" id="login-password" placeholder="Mot de passe" onkeypress="if(event.key==='Enter') handleLogin()" />
       </div>
-      <button class="btn-primary" onclick="handleLogin()">Se connecter</button>
+      <button id="btn-login-submit" class="btn-primary" onclick="handleLogin()">Se connecter</button>
       <p style="text-align: center; font-size: 13px; color: var(--text-secondary); margin-top: 16px;">
         Nouveau sur Man Ak Bae ? <span style="color: var(--primary-rose); font-weight: 700; cursor: pointer;" onclick="toggleAuthMode('register')">Créer un compte</span>
       </p>
@@ -537,7 +539,7 @@
         <ion-icon name="lock-closed-outline"></ion-icon>
         <input type="password" id="reg-password" placeholder="Mot de passe (8+ caractères)" />
       </div>
-      <button class="btn-primary" onclick="handleRegister()">S'inscrire</button>
+      <button id="btn-register-submit" class="btn-primary" onclick="handleRegister()">S'inscrire</button>
       <p style="text-align: center; font-size: 13px; color: var(--text-secondary); margin-top: 16px;">
         Déjà inscrit ? <span style="color: var(--primary-rose); font-weight: 700; cursor: pointer;" onclick="toggleAuthMode('login')">Se connecter</span>
       </p>
@@ -659,7 +661,7 @@
       <div class="shortcut-card" onclick="switchTab('games')">
         <div class="shortcut-icon"><ion-icon name="sparkles-outline"></ion-icon></div>
         <div style="font-weight: 700; font-size: 14px;">Jeux à Deux</div>
-        <div style="font-size: 11px; color: var(--text-secondary);">7 jeux amoureux</div>
+        <div style="font-size: 11px; color: var(--text-secondary);">12 jeux amoureux</div>
       </div>
     </div>
 
@@ -820,12 +822,24 @@
     if (tabName === 'calendar') loadEvents();
   }
 
-  // AUTHENTICATION
+  // Warm up backend immediately on page load (especially helpful on Render Free Tier)
+  fetch('/health/', { cache: 'no-store' }).catch(() => {});
+
+  function setBtnLoading(btnId, isLoading, loadingText, defaultText) {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    btn.disabled = isLoading;
+    btn.style.opacity = isLoading ? '0.7' : '1';
+    btn.textContent = isLoading ? loadingText : defaultText;
+  }
+
+  // AUTHENTICATION (Fast single-round-trip login)
   async function handleLogin() {
     const usernameOrEmail = document.getElementById('login-email').value.trim();
     const password = document.getElementById('login-password').value;
     if (!usernameOrEmail || !password) return showToast('Veuillez remplir tous les champs');
 
+    setBtnLoading('btn-login-submit', true, 'Connexion en cours...', 'Se connecter');
     try {
       const data = await apiFetch('/auth/login/', {
         method: 'POST',
@@ -834,9 +848,15 @@
       accessToken = data.access;
       localStorage.setItem('mab_access', accessToken);
       currentUser = data.user;
-      await checkCoupleStatus();
+      if (currentUser?.has_couple) {
+        enterDashboard();
+      } else {
+        showScreen('screen-couple-setup', false);
+      }
     } catch (err) {
       showToast(err.detail || 'Identifiants incorrects');
+    } finally {
+      setBtnLoading('btn-login-submit', false, 'Connexion en cours...', 'Se connecter');
     }
   }
 
@@ -849,6 +869,7 @@
 
     if (!username || !email || !password) return showToast('Veuillez remplir les champs obligatoires');
 
+    setBtnLoading('btn-register-submit', true, 'Création du compte...', "S'inscrire");
     try {
       const data = await apiFetch('/auth/register/', {
         method: 'POST',
@@ -868,6 +889,8 @@
     } catch (err) {
       const firstErr = Object.values(err)[0];
       showToast(Array.isArray(firstErr) ? firstErr[0] : 'Erreur lors de l’inscription');
+    } finally {
+      setBtnLoading('btn-register-submit', false, 'Création du compte...', "S'inscrire");
     }
   }
 
@@ -1050,7 +1073,50 @@
     } catch {}
   }
 
-  // GAMES
+  // GAMES (12 jeux + anti-répétition quotidienne)
+  let activeGameState = { gameId: null, gameTitle: '', sessionId: null, category: 'all' };
+
+  function getTodaySeenKey(gameId) {
+    const today = new Date().toISOString().split('T')[0];
+    return `mab_seen_${gameId}_${today}`;
+  }
+
+  function getSeenQuestionIds(gameId) {
+    try {
+      return JSON.parse(localStorage.getItem(getTodaySeenKey(gameId)) || '[]');
+    } catch {
+      return [];
+    }
+  }
+
+  function markQuestionSeen(gameId, questionId) {
+    const seen = getSeenQuestionIds(gameId);
+    if (!seen.includes(questionId)) {
+      seen.push(questionId);
+      localStorage.setItem(getTodaySeenKey(gameId), JSON.stringify(seen.slice(-100)));
+    }
+  }
+
+  function formatCategoryBadge(cat) {
+    const map = {
+      truth: '💬 VÉRITÉ',
+      dare: '🔥 ACTION',
+      spicy: '🔥 PIMENTÉ',
+      romantic: '❤️ ROMANTIQUE',
+      fun: '😄 FUN',
+      fast: '⚡ RAPIDE',
+      challenge: '✨ DÉFI',
+      future: '🌟 AVENIR',
+      emotions: '💞 ÉMOTIONS',
+      guess: '🔮 DEVINETTE',
+      habits: '🧩 HABITUDES',
+      dreams: '✈️ RÊVES',
+      details: '🔎 DÉTAILS',
+      love_language: '💌 LANGAGE D’AMOUR'
+    };
+    return map[cat] || '✨ QUESTION';
+  }
+
   async function loadGames() {
     try {
       const games = await apiFetch('/games/list/');
@@ -1067,38 +1133,97 @@
     } catch {}
   }
 
-  async function playGame(gameId, gameTitle) {
+  async function playGame(gameId, gameTitle, category = 'all') {
+    activeGameState.gameId = gameId;
+    activeGameState.gameTitle = gameTitle;
+    activeGameState.category = category;
+
+    openModal(`
+      <h3 style="color:var(--primary-rose); margin-bottom:12px;">${gameTitle}</h3>
+      <p style="font-size:13px; color:var(--text-secondary); text-align:center; padding: 24px 0;">Tirage d'une question inédite...</p>
+    `);
+
     try {
       const session = await apiFetch('/games/sessions/', {
         method: 'POST',
         body: JSON.stringify({ game_type: gameId })
       });
-      const q = await apiFetch(`/games/question/${gameId}/`);
-      openModal(`
-        <h3 style="color:var(--primary-rose); margin-bottom:8px;">${gameTitle}</h3>
-        <div class="card" style="background:var(--surface-elevated); margin: 14px 0;">
-          <p style="font-size:15px; font-weight:600; line-height:1.5;">${q.question_text}</p>
+      activeGameState.sessionId = session.id;
+      await drawNextQuestion(category);
+    } catch {
+      closeModal();
+      showToast('Impossible de lancer ce jeu');
+    }
+  }
+
+  async function drawNextQuestion(category = activeGameState.category) {
+    const { gameId, gameTitle, sessionId } = activeGameState;
+    activeGameState.category = category;
+    const seen = getSeenQuestionIds(gameId);
+    const params = new URLSearchParams();
+    if (seen.length) params.set('exclude', seen.join(','));
+    if (category && category !== 'all') params.set('category', category);
+
+    try {
+      const q = await apiFetch(`/games/question/${gameId}/?${params.toString()}`);
+      markQuestionSeen(gameId, q.id);
+
+      const modeSwitcher = gameId === 'truth_or_dare' ? `
+        <div style="display:flex; gap:6px; margin-bottom:12px;">
+          <button class="btn-secondary" style="padding:8px; font-size:12px; ${category==='all' ? 'border-color:var(--primary-rose); background:rgba(242,167,198,0.18);' : ''}" onclick="drawNextQuestion('all')">🎲 Aléatoire</button>
+          <button class="btn-secondary" style="padding:8px; font-size:12px; ${category==='truth' ? 'border-color:var(--primary-rose); background:rgba(242,167,198,0.18);' : ''}" onclick="drawNextQuestion('truth')">💬 Vérité</button>
+          <button class="btn-secondary" style="padding:8px; font-size:12px; ${category==='dare' ? 'border-color:var(--primary-rose); background:rgba(242,167,198,0.18);' : ''}" onclick="drawNextQuestion('dare')">🔥 Action</button>
         </div>
+      ` : '';
+
+      const optionsHtml = Array.isArray(q.options) && q.options.length ? `
+        <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px;">
+          ${q.options.map(opt => `
+            <button class="btn-secondary" style="text-align:left; padding:12px 14px; color:var(--off-white);" onclick="submitGameAnswer('${sessionId}', '${q.id}', '${opt.replace(/'/g, "\\'")}')">
+              ${opt}
+            </button>
+          `).join('')}
+        </div>
+      ` : `
         <div class="input-group">
           <textarea id="game-answer-input" placeholder="Votre réponse amoureuse..."></textarea>
         </div>
-        <button class="btn-primary" onclick="submitGameAnswer('${session.id}', '${q.id}')">Envoyer ma réponse ❤️</button>
+        <button class="btn-primary" style="margin-bottom:8px;" onclick="submitGameAnswer('${sessionId}', '${q.id}')">Envoyer ma réponse ❤️</button>
+      `;
+
+      const remainingText = typeof q.remaining_count === 'number'
+        ? `${q.remaining_count} inédites restantes`
+        : '';
+
+      openModal(`
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <h3 style="color:var(--primary-rose);">${gameTitle}</h3>
+          <span class="badge">${formatCategoryBadge(q.category)}</span>
+        </div>
+        ${modeSwitcher}
+        <div class="card" style="background:var(--surface-elevated); margin: 10px 0 14px;">
+          <p style="font-size:15px; font-weight:600; line-height:1.5;">${q.question_text}</p>
+          ${remainingText ? `<div style="font-size:11px; color:var(--text-muted); margin-top:8px;">✨ ${remainingText}</div>` : ''}
+        </div>
+        ${optionsHtml}
+        <button class="btn-secondary" onclick="drawNextQuestion()">Question suivante 🔄</button>
       `);
     } catch {
       showToast('Aucune question disponible');
     }
   }
 
-  async function submitGameAnswer(sessionId, questionId) {
-    const ans = document.getElementById('game-answer-input').value.trim();
-    if (!ans) return showToast('Écrivez une réponse');
+  async function submitGameAnswer(sessionId, questionId, selectedOption = null) {
+    const inputEl = document.getElementById('game-answer-input');
+    const ans = selectedOption || (inputEl ? inputEl.value.trim() : '');
+    if (!ans) return showToast('Écrivez ou choisissez une réponse');
     try {
       await apiFetch(`/games/sessions/${sessionId}/answer/`, {
         method: 'POST',
         body: JSON.stringify({ question_id: questionId, answer_text: ans })
       });
-      closeModal();
       showToast('Réponse enregistrée ! ❤️');
+      await drawNextQuestion();
     } catch {
       showToast('Erreur');
     }
@@ -1306,3 +1431,4 @@
 </script>
 </body>
 </html>
+

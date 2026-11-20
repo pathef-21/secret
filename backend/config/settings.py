@@ -58,6 +58,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'django.middleware.gzip.GZipMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
@@ -103,6 +104,8 @@ if DATABASE_URL and (DATABASE_URL.startswith('postgres://') or DATABASE_URL.star
             'PASSWORD': parsed.password,
             'HOST': parsed.hostname,
             'PORT': parsed.port or 5432,
+            'CONN_MAX_AGE': 600,
+            'CONN_HEALTH_CHECKS': True,
         }
     }
 elif os.getenv('DB_NAME') and os.getenv('DB_USER'):
