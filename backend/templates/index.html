@@ -622,6 +622,7 @@
       <div class="partner-col">
         <div class="avatar-circle" id="home-partner-avatar">?</div>
         <div class="partner-name" id="home-partner-name">En attente...</div>
+        <div id="home-partner-presence" style="font-size: 11px; color: var(--text-muted); margin-top: 2px;"></div>
       </div>
     </div>
 
@@ -979,9 +980,11 @@
         document.getElementById('home-partner-name').textContent = pName;
         document.getElementById('home-partner-avatar').textContent = pName[0].toUpperCase();
         document.getElementById('home-invite-banner').style.display = 'none';
+        updatePartnerPresenceUI(d.partner?.profile?.is_online, d.partner?.profile?.last_seen);
       } else {
         document.getElementById('home-partner-name').textContent = 'En attente...';
         document.getElementById('home-partner-avatar').textContent = '?';
+        document.getElementById('home-partner-presence').textContent = '';
         document.getElementById('home-invite-banner').style.display = 'block';
       }
 
@@ -1013,6 +1016,23 @@
     }
   }
 
+  function updatePartnerPresenceUI(isOnline, lastSeen = null) {
+    const homeEl = document.getElementById('home-partner-presence');
+    const chatEl = document.getElementById('chat-status-sub');
+    if (isOnline) {
+      if (homeEl) { homeEl.textContent = '🟢 En ligne'; homeEl.style.color = '#4ADE80'; }
+      if (chatEl) { chatEl.textContent = '🟢 En ligne maintenant'; chatEl.style.color = '#4ADE80'; }
+    } else {
+      let label = '⚫ Hors ligne';
+      if (lastSeen) {
+        const t = new Date(lastSeen).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        label = `⚫ Vu à ${t}`;
+      }
+      if (homeEl) { homeEl.textContent = label; homeEl.style.color = 'var(--text-muted)'; }
+      if (chatEl) { chatEl.textContent = label; chatEl.style.color = 'var(--text-secondary)'; }
+    }
+  }
+
   // CHAT & WEBSOCKET
   function connectWebSocket() {
     if (!accessToken) return;
@@ -1023,6 +1043,14 @@
         const data = JSON.parse(e.data);
         if (data.type === 'new_message') {
           loadMessages();
+        } else if (data.type === 'presence') {
+          updatePartnerPresenceUI(data.is_online, new Date().toISOString());
+        } else if (data.type === 'typing') {
+          const chatEl = document.getElementById('chat-status-sub');
+          if (chatEl) {
+            chatEl.textContent = data.is_typing ? '✍️ est en train d’écrire...' : '🟢 En ligne maintenant';
+            chatEl.style.color = data.is_typing ? 'var(--primary-rose)' : '#4ADE80';
+          }
         }
       } catch {}
     };
