@@ -24,6 +24,8 @@ CSRF_TRUSTED_ORIGINS = [
     'https://*.lhr.life',
     'https://*.onrender.com',
     'https://*.railway.app',
+    'https://*.vercel.app',
+    'https://*.pages.dev',
 ]
 
 # Application definition
@@ -96,16 +98,27 @@ DATABASE_URL = os.getenv('DATABASE_URL')
 if DATABASE_URL and (DATABASE_URL.startswith('postgres://') or DATABASE_URL.startswith('postgresql://')):
     import urllib.parse
     parsed = urllib.parse.urlparse(DATABASE_URL)
+    query_params = urllib.parse.parse_qs(parsed.query)
+    db_options = {}
+    if 'sslmode' in query_params:
+        db_options['sslmode'] = query_params['sslmode'][0]
+    elif parsed.hostname and parsed.hostname not in ('localhost', '127.0.0.1'):
+        # Cloud PostgreSQL providers (Neon, Supabase, etc.) require SSL
+        db_options['sslmode'] = 'require'
+    if 'channel_binding' in query_params:
+        db_options['channel_binding'] = query_params['channel_binding'][0]
+
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
             'NAME': parsed.path.lstrip('/'),
-            'USER': parsed.username,
-            'PASSWORD': parsed.password,
+            'USER': urllib.parse.unquote(parsed.username) if parsed.username else '',
+            'PASSWORD': urllib.parse.unquote(parsed.password) if parsed.password else '',
             'HOST': parsed.hostname,
             'PORT': parsed.port or 5432,
             'CONN_MAX_AGE': 600,
             'CONN_HEALTH_CHECKS': True,
+            'OPTIONS': db_options,
         }
     }
 elif os.getenv('DB_NAME') and os.getenv('DB_USER'):
@@ -176,7 +189,7 @@ if USE_S3_STORAGE:
     AWS_DEFAULT_ACL = 'private'
     AWS_QUERYSTRING_AUTH = True
     AWS_QUERYSTRING_EXPIRE = 3600
-    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+    STORAGES['default']['BACKEND'] = 'storages.backends.s3boto3.S3Boto3Storage'
 
 # Channel layer for WebSockets
 REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
@@ -234,6 +247,10 @@ CORS_ALLOWED_ORIGINS = [
         'CORS_ALLOWED_ORIGINS',
         'http://localhost:8081,http://127.0.0.1:8081,http://localhost:19006,exp://localhost:8081'
     ).split(',') if origin.strip()
+]
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r'^https://.*\.vercel\.app$',
+    r'^https://.*\.pages\.dev$',
 ]
 CORS_ALLOW_CREDENTIALS = True
 

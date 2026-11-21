@@ -1,5 +1,4 @@
-import * as SecureStore from 'expo-secure-store';
-import { Platform } from 'react-native';
+import storage from './storage';
 
 const DEFAULT_WS_URL = 'wss://man-ak-bae.onrender.com/ws/chat/';
 
@@ -19,7 +18,7 @@ class ChatWebSocketService {
     }
 
     try {
-      const token = await SecureStore.getItemAsync('access_token');
+      const token = await storage.getItem('access_token');
       if (!token) return;
 
       const fullUrl = `${WS_BASE_URL}?token=${token}`;

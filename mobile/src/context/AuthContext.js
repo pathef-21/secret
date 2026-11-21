@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
-import * as SecureStore from 'expo-secure-store';
+import storage from '../services/storage';
 import api from '../services/api';
 import chatWS from '../services/websocket';
 
@@ -12,7 +12,7 @@ export const AuthProvider = ({ children }) => {
 
   const loadStoredSession = async () => {
     try {
-      const accessToken = await SecureStore.getItemAsync('access_token');
+      const accessToken = await storage.getItem('access_token');
       if (accessToken) {
         // Fetch current user and couple
         const userRes = await api.get('/auth/me/');
@@ -45,8 +45,8 @@ export const AuthProvider = ({ children }) => {
     const res = await api.post('/auth/login/', { email, password });
     const { access, refresh, user: userData } = res.data;
 
-    await SecureStore.setItemAsync('access_token', access);
-    await SecureStore.setItemAsync('refresh_token', refresh);
+    await storage.setItem('access_token', access);
+    await storage.setItem('refresh_token', refresh);
     setUser(userData);
 
     try {
@@ -63,8 +63,8 @@ export const AuthProvider = ({ children }) => {
     const res = await api.post('/auth/register/', userData);
     const { access, refresh, user: createdUser } = res.data;
 
-    await SecureStore.setItemAsync('access_token', access);
-    await SecureStore.setItemAsync('refresh_token', refresh);
+    await storage.setItem('access_token', access);
+    await storage.setItem('refresh_token', refresh);
     setUser(createdUser);
     setCouple(null);
     return createdUser;
@@ -94,15 +94,15 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      const refresh = await SecureStore.getItemAsync('refresh_token');
+      const refresh = await storage.getItem('refresh_token');
       if (refresh) {
         await api.post('/auth/logout/', { refresh });
       }
     } catch (e) {
       console.warn('Logout API call error:', e);
     } finally {
-      await SecureStore.deleteItemAsync('access_token');
-      await SecureStore.deleteItemAsync('refresh_token');
+      await storage.deleteItem('access_token');
+      await storage.deleteItem('refresh_token');
       chatWS.disconnect();
       setUser(null);
       setCouple(null);
