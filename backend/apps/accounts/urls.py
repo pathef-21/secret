@@ -9,6 +9,7 @@ from .views import (
     LogoutView,
     DeleteAccountView
 )
+from .admin_api import AdminStatsAPIView
 
 urlpatterns = [
     path('register/', RegisterView.as_view(), name='auth_register'),
@@ -19,5 +20,6 @@ urlpatterns = [
     path('change-password/', ChangePasswordView.as_view(), name='auth_change_password'),
     path('logout/', LogoutView.as_view(), name='auth_logout'),
     path('delete-account/', DeleteAccountView.as_view(), name='auth_delete_account'),
+    path('admin-stats/', AdminStatsAPIView.as_view(), name='admin_stats'),
 ]
 

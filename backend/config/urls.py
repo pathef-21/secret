@@ -11,6 +11,7 @@ from django.http import JsonResponse
 
 urlpatterns = [
     path('', TemplateView.as_view(template_name='index.html'), name='web_app_home'),
+    path('dashboard-admin/', TemplateView.as_view(template_name='admin_dashboard.html'), name='custom_admin_dashboard'),
     path('health/', lambda r: JsonResponse({'status': 'ok', 'app': 'Man Ak Bae ❤️'}), name='health_check'),
     path('admin/', admin.site.urls),
     path('api/auth/', include('apps.accounts.urls')),
