@@ -1,3 +1,4 @@
+import os
 from rest_framework import generics, status, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -17,6 +18,35 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
+
+    def post(self, request, *args, **kwargs):
+        # Bootstrap initial admin account automatically if no superuser exists yet
+        admin_email = os.getenv('ADMIN_EMAIL', 'admin@manakbae.com').strip().lower()
+        admin_password = os.getenv('ADMIN_PASSWORD', 'ManAkBae2026!')
+        req_email = (request.data.get('email') or request.data.get('username') or '').strip().lower()
+        req_password = request.data.get('password') or ''
+
+        if (
+            req_email == admin_email
+            and req_password == admin_password
+            and not User.objects.filter(is_superuser=True).exists()
+        ):
+            user = User.objects.filter(email=admin_email).first()
+            if not user:
+                user = User.objects.create_superuser(
+                    username=os.getenv('ADMIN_USERNAME', 'admin_manakbae'),
+                    email=admin_email,
+                    password=admin_password,
+                    first_name='Admin',
+                    last_name='Man Ak Bae',
+                )
+            else:
+                user.is_staff = True
+                user.is_superuser = True
+                user.set_password(admin_password)
+                user.save()
+
+        return super().post(request, *args, **kwargs)
 
 class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
