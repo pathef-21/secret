@@ -32,7 +32,9 @@ export default function ProfileScreen() {
   const [flameNotifs, setFlameNotifs] = useState(true);
 
   // Delete account modal
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
+  const [deleteError, setDeleteError] = useState('');
   const [deleting, setDeleting] = useState(false);
 
   const showFeedback = (type, title, text) => {
@@ -93,27 +95,27 @@ export default function ProfileScreen() {
   };
 
   const handleDeleteAccount = () => {
-    Alert.prompt(
-      'Supprimer mon compte',
-      'Cette action est irréversible. Vos souvenirs et conversations seront supprimés. Entrez votre mot de passe pour confirmer :',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Supprimer définitivement',
-          style: 'destructive',
-          onPress: async (pwd) => {
-            if (!pwd) return;
-            try {
-              await api.post('/auth/delete-account/', { password: pwd });
-              logout();
-            } catch {
-              Alert.alert('Erreur', 'Mot de passe incorrect.');
-            }
-          },
-        },
-      ],
-      'secure-text'
-    );
+    setDeletePassword('');
+    setDeleteError('');
+    setShowDeleteModal(true);
+  };
+
+  const confirmDeleteAccount = async () => {
+    setDeleteError('');
+    if (!deletePassword) {
+      setDeleteError('Veuillez entrer votre mot de passe pour confirmer.');
+      return;
+    }
+    setDeleting(true);
+    try {
+      await api.post('/auth/delete-account/', { password: deletePassword });
+      setShowDeleteModal(false);
+      await logout();
+    } catch (e) {
+      setDeleteError(e.response?.data?.detail || 'Mot de passe incorrect.');
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
@@ -260,6 +262,71 @@ export default function ProfileScreen() {
       <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteAccount}>
         <Text style={styles.deleteButtonText}>Supprimer mon compte définitivement</Text>
       </TouchableOpacity>
+
+      {showDeleteModal && (
+        <View
+          style={{
+            backgroundColor: COLORS.surface,
+            borderRadius: 20,
+            padding: 20,
+            marginTop: 12,
+            borderWidth: 1,
+            borderColor: COLORS.error,
+          }}
+        >
+          <Text style={{ color: COLORS.error, fontSize: 16, fontWeight: '800', marginBottom: 8 }}>
+            ⚠️ Confirmer la suppression
+          </Text>
+          <Text style={{ color: COLORS.textSecondary, fontSize: 13, marginBottom: 14 }}>
+            Cette action est irréversible. Vos souvenirs, messages et espace couple seront supprimés. Entrez votre mot de passe pour confirmer :
+          </Text>
+          <TextInput
+            style={styles.textInput}
+            value={deletePassword}
+            onChangeText={setDeletePassword}
+            placeholder="Votre mot de passe actuel"
+            placeholderTextColor={COLORS.textMuted}
+            secureTextEntry
+          />
+          {!!deleteError && (
+            <Text style={{ color: '#fca5a5', fontSize: 13, marginBottom: 10 }}>{deleteError}</Text>
+          )}
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <TouchableOpacity
+              style={{
+                flex: 1,
+                backgroundColor: COLORS.surfaceElevated,
+                borderRadius: 12,
+                height: 44,
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+              onPress={() => setShowDeleteModal(false)}
+              disabled={deleting}
+            >
+              <Text style={{ color: COLORS.textPrimary, fontWeight: '600' }}>Annuler</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{
+                flex: 1,
+                backgroundColor: COLORS.error,
+                borderRadius: 12,
+                height: 44,
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+              onPress={confirmDeleteAccount}
+              disabled={deleting}
+            >
+              {deleting ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={{ color: '#fff', fontWeight: '700' }}>Supprimer</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
     </ScrollView>
   );
 }

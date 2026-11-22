@@ -4,7 +4,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  FlatList,
+  ScrollView,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
@@ -37,11 +37,11 @@ export default function ChatScreen() {
   const fetchMessages = useCallback(async () => {
     try {
       const res = await api.get('/chat/messages/');
-      const list = res.data.results || res.data;
-      if (Array.isArray(list)) {
-        setMessages(list);
-      }
+      const list = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+      setMessages(list);
     } catch (e) {
+      const errDetail = e?.response?.data?.detail;
+      if (errDetail) setChatError(errDetail);
       console.warn('Error fetching messages:', e);
     } finally {
       setLoading(false);
@@ -267,28 +267,33 @@ export default function ChatScreen() {
         </View>
       )}
 
-      {/* Message List (chronological, no `inverted` which breaks on react-native-web) */}
+      {/* Message List (ScrollView works reliably on both Web and Native) */}
       {loading ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator color={COLORS.primaryRose} size="large" />
         </View>
       ) : (
-        <FlatList
+        <ScrollView
           ref={flatListRef}
-          data={[...messages].reverse()}
-          keyExtractor={(item) => String(item.id)}
-          renderItem={renderMessageItem}
+          style={{ flex: 1 }}
           contentContainerStyle={[styles.listContent, { flexGrow: 1, justifyContent: 'flex-end' }]}
           showsVerticalScrollIndicator={false}
           onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
-          ListEmptyComponent={
+        >
+          {messages.length === 0 ? (
             <View style={styles.centerContainer}>
-              <Text style={{ color: COLORS.textMuted, fontSize: 14 }}>
+              <Text style={{ color: COLORS.textMuted, fontSize: 14, textAlign: 'center' }}>
                 Aucun message pour l’instant. Envoie un premier mot doux ❤️
               </Text>
             </View>
-          }
-        />
+          ) : (
+            [...messages].reverse().map((item) => (
+              <React.Fragment key={String(item.id)}>
+                {renderMessageItem({ item })}
+              </React.Fragment>
+            ))
+          )}
+        </ScrollView>
       )}
 
       {/* Error Banner */}
