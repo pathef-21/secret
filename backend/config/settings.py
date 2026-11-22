@@ -181,7 +181,7 @@ MEDIA_ROOT = BASE_DIR / 'media'
 DATA_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024  # 50MB
 FILE_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024
 
-# S3 Storage Configuration if enabled
+# S3 Storage Configuration if enabled (compatible Cloudflare R2 & AWS S3)
 USE_S3_STORAGE = os.getenv('USE_S3_STORAGE', 'False').lower() in ('true', '1')
 if USE_S3_STORAGE:
     AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
@@ -189,9 +189,11 @@ if USE_S3_STORAGE:
     AWS_STORAGE_BUCKET_NAME = os.getenv('AWS_STORAGE_BUCKET_NAME')
     AWS_S3_ENDPOINT_URL = os.getenv('AWS_S3_ENDPOINT_URL')
     AWS_S3_REGION_NAME = os.getenv('AWS_S3_REGION_NAME', 'auto')
-    AWS_DEFAULT_ACL = 'private'
+    AWS_S3_SIGNATURE_VERSION = 's3v4'
+    AWS_DEFAULT_ACL = None  # Cloudflare R2 rejects S3 ACL headers
     AWS_QUERYSTRING_AUTH = True
     AWS_QUERYSTRING_EXPIRE = 3600
+    AWS_S3_FILE_OVERWRITE = False
     STORAGES['default']['BACKEND'] = 'storages.backends.s3boto3.S3Boto3Storage'
 
 # Channel layer for WebSockets
