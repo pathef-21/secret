@@ -2,6 +2,6 @@
   "name": "man-ak-bae-monorepo",
   "private": true,
   "scripts": {
-    "build:web": "cd mobile && npm install --legacy-peer-deps --no-audit --no-fund && npm run build:web && node -e \"const fs=require('fs'); fs.rmSync('../dist',{recursive:true,force:true}); fs.cpSync('dist','../dist',{recursive:true});\""
+    "build:web": "cd mobile && npm install --legacy-peer-deps --no-audit --no-fund && npm run build:web && cd .. && node scripts/fix-cf-assets.js"
   }
 }
