@@ -10,10 +10,11 @@ import {
   ActivityIndicator,
   Alert,
   Switch,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import api from '../src/services/api';
+import api, { appendImageToFormData } from '../src/services/api';
 import { useAuth } from '../src/context/AuthContext';
 import { COLORS } from '../src/theme/colors';
 
@@ -22,6 +23,8 @@ export default function ProfileScreen() {
   const [nickname, setNickname] = useState(user?.profile?.nickname || '');
   const [bio, setBio] = useState(user?.profile?.bio || '');
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [statusMsg, setStatusMsg] = useState({ type: '', text: '' });
 
   // Notifications toggles
   const [msgNotifs, setMsgNotifs] = useState(true);
@@ -31,23 +34,32 @@ export default function ProfileScreen() {
   const [deletePassword, setDeletePassword] = useState('');
   const [deleting, setDeleting] = useState(false);
 
+  const showFeedback = (type, title, text) => {
+    setStatusMsg({ type, text });
+    if (Platform.OS !== 'web') {
+      Alert.alert(title, text);
+    }
+  };
+
   const handleUpdateProfile = async () => {
     setSaving(true);
+    setStatusMsg({ type: '', text: '' });
     try {
       await api.patch('/auth/profile/', {
         nickname: nickname.trim(),
         bio: bio.trim(),
       });
       await refreshUser();
-      Alert.alert('Succès', 'Profil mis à jour ! ❤️');
+      showFeedback('success', 'Succès', 'Profil mis à jour ! ❤️');
     } catch {
-      Alert.alert('Erreur', 'Impossible de mettre à jour le profil.');
+      showFeedback('error', 'Erreur', 'Impossible de mettre à jour le profil.');
     } finally {
       setSaving(false);
     }
   };
 
   const handlePickAvatar = async () => {
+    setStatusMsg({ type: '', text: '' });
     const res = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
@@ -56,20 +68,18 @@ export default function ProfileScreen() {
     });
 
     if (!res.canceled && res.assets[0]) {
-      const formData = new FormData();
-      formData.append('avatar', {
-        uri: res.assets[0].uri,
-        name: 'avatar.jpg',
-        type: 'image/jpeg',
-      });
-
+      setUploadingAvatar(true);
       try {
-        await api.patch('/auth/profile/', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
+        const formData = new FormData();
+        await appendImageToFormData(formData, 'avatar', res.assets[0], 'avatar.jpg');
+        await api.patch('/auth/profile/', formData);
         await refreshUser();
-      } catch {
-        Alert.alert('Erreur', 'Échec du changement de photo.');
+        showFeedback('success', 'Succès', 'Photo de profil mise à jour ! 📸');
+      } catch (e) {
+        console.warn('Avatar upload error:', e?.response?.data || e);
+        showFeedback('error', 'Erreur', 'Échec du changement de photo de profil.');
+      } finally {
+        setUploadingAvatar(false);
       }
     }
   };
@@ -112,13 +122,46 @@ export default function ProfileScreen() {
               </Text>
             </View>
           )}
-          <TouchableOpacity style={styles.cameraIconBtn} onPress={handlePickAvatar}>
-            <Ionicons name="camera" size={16} color={COLORS.deepBlack} />
+          <TouchableOpacity
+            style={styles.cameraIconBtn}
+            onPress={handlePickAvatar}
+            disabled={uploadingAvatar}
+          >
+            {uploadingAvatar ? (
+              <ActivityIndicator size="small" color={COLORS.deepBlack} />
+            ) : (
+              <Ionicons name="camera" size={16} color={COLORS.deepBlack} />
+            )}
           </TouchableOpacity>
         </View>
 
         <Text style={styles.userName}>{user?.profile?.nickname || user?.username}</Text>
         <Text style={styles.userEmail}>{user?.email}</Text>
+
+        {!!statusMsg.text && (
+          <View
+            style={{
+              marginTop: 12,
+              paddingHorizontal: 14,
+              paddingVertical: 8,
+              borderRadius: 12,
+              backgroundColor:
+                statusMsg.type === 'error'
+                  ? 'rgba(239,68,68,0.16)'
+                  : 'rgba(74,222,128,0.16)',
+            }}
+          >
+            <Text
+              style={{
+                color: statusMsg.type === 'error' ? '#fca5a5' : '#86efac',
+                fontSize: 13,
+                fontWeight: '600',
+              }}
+            >
+              {statusMsg.text}
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Profile Form */}

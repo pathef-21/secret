@@ -18,7 +18,7 @@ const api = axios.create({
   },
 });
 
-// Request interceptor to attach JWT Access Token
+// Request interceptor to attach JWT Access Token & handle FormData on Web
 api.interceptors.request.use(
   async (config) => {
     try {
@@ -29,10 +29,32 @@ api.interceptors.request.use(
     } catch (e) {
       console.warn('Could not read access_token from storage', e);
     }
+    if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+      // Let browser / RN set multipart/form-data with proper boundary
+      delete config.headers['Content-Type'];
+    }
     return config;
   },
   (error) => Promise.reject(error)
 );
+
+export async function appendImageToFormData(formData, fieldName, asset, fallbackName = 'image.jpg') {
+  if (Platform.OS === 'web') {
+    if (asset.file) {
+      formData.append(fieldName, asset.file, asset.fileName || fallbackName);
+    } else {
+      const response = await fetch(asset.uri);
+      const blob = await response.blob();
+      formData.append(fieldName, blob, asset.fileName || fallbackName);
+    }
+  } else {
+    formData.append(fieldName, {
+      uri: asset.uri,
+      name: asset.fileName || fallbackName,
+      type: asset.mimeType || 'image/jpeg',
+    });
+  }
+}
 
 // Response interceptor to automatically refresh expired token
 api.interceptors.response.use(

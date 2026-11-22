@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import api from '../../src/services/api';
+import api, { appendImageToFormData } from '../../src/services/api';
 import chatWS from '../../src/services/websocket';
 import { useAuth } from '../../src/context/AuthContext';
 import { COLORS } from '../../src/theme/colors';
@@ -24,6 +24,8 @@ export default function ChatScreen() {
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [chatError, setChatError] = useState('');
   const [partnerTyping, setPartnerTyping] = useState(false);
   const [partnerOnline, setPartnerOnline] = useState(false);
   const flatListRef = useRef(null);
@@ -31,12 +33,14 @@ export default function ChatScreen() {
 
   const partner = couple?.memberships?.find((m) => m.user.id !== user?.id)?.user;
 
-  // 1. Fetch initial message history
+  // 1. Fetch message history (also used for reliable 3s live sync)
   const fetchMessages = useCallback(async () => {
     try {
       const res = await api.get('/chat/messages/');
       const list = res.data.results || res.data;
-      setMessages(list);
+      if (Array.isArray(list)) {
+        setMessages(list);
+      }
     } catch (e) {
       console.warn('Error fetching messages:', e);
     } finally {
@@ -46,12 +50,19 @@ export default function ChatScreen() {
 
   useEffect(() => {
     fetchMessages();
+    chatWS.connect();
     chatWS.sendReadReceipt();
+
+    // Reliable real-time sync every 3s in case WebSocket drops on Render free tier
+    const pollInterval = setInterval(fetchMessages, 3000);
 
     // 2. Setup WebSocket Listeners
     const removeListener = chatWS.addListener((data) => {
-      if (data.type === 'new_message') {
-        setMessages((prev) => [data.message, ...prev]);
+      if (data.type === 'new_message' && data.message) {
+        setMessages((prev) => {
+          if (prev.some((m) => String(m.id) === String(data.message.id))) return prev;
+          return [data.message, ...prev];
+        });
         chatWS.sendReadReceipt();
       } else if (data.type === 'typing') {
         setPartnerTyping(data.is_typing);
@@ -61,6 +72,7 @@ export default function ChatScreen() {
     });
 
     return () => {
+      clearInterval(pollInterval);
       removeListener();
       clearTimeout(typingTimeoutRef.current);
     };
@@ -79,23 +91,29 @@ export default function ChatScreen() {
   const handleSendMessage = async (type = 'text', customContent = null) => {
     const textToSend = customContent || inputText.trim();
     if (!textToSend && type === 'text') return;
+    if (sending) return;
 
+    setChatError('');
     setInputText('');
+    setSending(true);
     chatWS.sendTyping(false);
 
-    // Try WS first
-    const sentViaWS = chatWS.sendMessage(textToSend, type);
-    if (!sentViaWS) {
-      // Fallback REST
-      try {
-        const res = await api.post('/chat/send/', {
-          message_type: type,
-          content: textToSend,
-        });
-        setMessages((prev) => [res.data, ...prev]);
-      } catch (err) {
-        Alert.alert('Erreur', 'Impossible d’envoyer le message.');
-      }
+    // Always persist via REST API so messages are guaranteed saved & delivered
+    try {
+      const res = await api.post('/chat/send/', {
+        message_type: type,
+        content: textToSend,
+      });
+      setMessages((prev) => {
+        if (prev.some((m) => String(m.id) === String(res.data.id))) return prev;
+        return [res.data, ...prev];
+      });
+    } catch (err) {
+      const msg = err.response?.data?.detail || 'Impossible d’envoyer le message.';
+      setChatError(msg);
+      if (Platform.OS !== 'web') Alert.alert('Erreur', msg);
+    } finally {
+      setSending(false);
     }
   };
 
@@ -104,10 +122,13 @@ export default function ChatScreen() {
   };
 
   const pickImage = async () => {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert('Permission requise', 'Veuillez autoriser l’accès aux photos.');
-      return;
+    setChatError('');
+    if (Platform.OS !== 'web') {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('Permission requise', 'Veuillez autoriser l’accès aux photos.');
+        return;
+      }
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -121,19 +142,18 @@ export default function ChatScreen() {
       const formData = new FormData();
       formData.append('message_type', 'image');
       formData.append('content', '📷 Photo partagée');
-      formData.append('file', {
-        uri: asset.uri,
-        name: 'photo.jpg',
-        type: 'image/jpeg',
-      });
+      await appendImageToFormData(formData, 'file', asset, 'photo.jpg');
 
       try {
-        const res = await api.post('/chat/send/', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
+        const res = await api.post('/chat/send/', formData);
+        setMessages((prev) => {
+          if (prev.some((m) => String(m.id) === String(res.data.id))) return prev;
+          return [res.data, ...prev];
         });
-        setMessages((prev) => [res.data, ...prev]);
       } catch (e) {
-        Alert.alert('Erreur', 'Échec de l’envoi de la photo.');
+        const msg = 'Échec de l’envoi de la photo.';
+        setChatError(msg);
+        if (Platform.OS !== 'web') Alert.alert('Erreur', msg);
       }
     }
   };
@@ -253,6 +273,13 @@ export default function ChatScreen() {
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
         />
+      )}
+
+      {/* Error Banner */}
+      {!!chatError && (
+        <View style={{ backgroundColor: 'rgba(239,68,68,0.16)', paddingHorizontal: 14, paddingVertical: 8 }}>
+          <Text style={{ color: '#fca5a5', fontSize: 12.5, textAlign: 'center' }}>{chatError}</Text>
+        </View>
       )}
 
       {/* Input Bar */}
