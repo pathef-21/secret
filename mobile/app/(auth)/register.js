@@ -24,23 +24,31 @@ export default function RegisterScreen() {
   const [passwordConfirm, setPasswordConfirm] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const { register } = useAuth();
   const router = useRouter();
 
   const handleRegister = async () => {
+    setErrorMessage('');
     if (!username.trim() || !email.trim() || !password || !passwordConfirm) {
-      Alert.alert('Champs incomplets', 'Veuillez remplir tous les champs obligatoires.');
+      const msg = 'Veuillez remplir tous les champs obligatoires.';
+      setErrorMessage(msg);
+      if (Platform.OS !== 'web') Alert.alert('Champs incomplets', msg);
       return;
     }
 
     if (password !== passwordConfirm) {
-      Alert.alert('Erreur', 'Les deux mots de passe ne correspondent pas.');
+      const msg = 'Les deux mots de passe ne correspondent pas.';
+      setErrorMessage(msg);
+      if (Platform.OS !== 'web') Alert.alert('Erreur', msg);
       return;
     }
 
     if (password.length < 8) {
-      Alert.alert('Mot de passe trop court', 'Le mot de passe doit comporter au moins 8 caractères.');
+      const msg = 'Le mot de passe doit comporter au moins 8 caractères.';
+      setErrorMessage(msg);
+      if (Platform.OS !== 'web') Alert.alert('Mot de passe trop court', msg);
       return;
     }
 
@@ -62,8 +70,12 @@ export default function RegisterScreen() {
         else if (errorData.email) msg = `Email: ${errorData.email[0]}`;
         else if (errorData.username) msg = `Nom d’utilisateur: ${errorData.username[0]}`;
         else if (errorData.password) msg = `Mot de passe: ${errorData.password[0]}`;
+        else if (errorData.detail) msg = errorData.detail;
+      } else if (error.code === 'ECONNABORTED') {
+        msg = 'Le serveur se réveille, réessayez dans quelques secondes.';
       }
-      Alert.alert('Inscription impossible', msg);
+      setErrorMessage(msg);
+      if (Platform.OS !== 'web') Alert.alert('Inscription impossible', msg);
     } finally {
       setLoading(false);
     }
@@ -87,6 +99,11 @@ export default function RegisterScreen() {
 
         {/* Formulaire */}
         <View style={styles.formCard}>
+          {!!errorMessage && (
+            <View style={{ backgroundColor: 'rgba(239,68,68,0.15)', borderColor: '#ef4444', borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 14 }}>
+              <Text style={{ color: '#fca5a5', fontSize: 13 }}>{errorMessage}</Text>
+            </View>
+          )}
           <View style={styles.inputContainer}>
             <Ionicons name="person-outline" size={20} color={COLORS.primaryRose} style={styles.inputIcon} />
             <TextInput

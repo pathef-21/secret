@@ -22,12 +22,16 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const { login } = useAuth();
   const router = useRouter();
 
   const handleLogin = async () => {
+    setErrorMessage('');
     if (!email.trim() || !password) {
-      Alert.alert('Champs incomplets', 'Veuillez saisir votre adresse email et votre mot de passe.');
+      const msg = 'Veuillez saisir votre adresse email et votre mot de passe.';
+      setErrorMessage(msg);
+      if (Platform.OS !== 'web') Alert.alert('Champs incomplets', msg);
       return;
     }
 
@@ -35,8 +39,14 @@ export default function LoginScreen() {
     try {
       await login(email.trim().toLowerCase(), password);
     } catch (error) {
-      const msg = error.response?.data?.detail || 'Identifiants incorrects. Veuillez réessayer.';
-      Alert.alert('Connexion impossible', msg);
+      const msg =
+        error.response?.data?.detail ||
+        error.response?.data?.non_field_errors?.[0] ||
+        (error.code === 'ECONNABORTED'
+          ? 'Le serveur se réveille, réessayez dans quelques secondes.'
+          : 'Identifiants incorrects ou serveur indisponible. Veuillez réessayer.');
+      setErrorMessage(msg);
+      if (Platform.OS !== 'web') Alert.alert('Connexion impossible', msg);
     } finally {
       setLoading(false);
     }
@@ -61,6 +71,12 @@ export default function LoginScreen() {
         {/* Formulaire */}
         <View style={styles.formCard}>
           <Text style={styles.formTitle}>Connexion</Text>
+
+          {!!errorMessage && (
+            <View style={{ backgroundColor: 'rgba(239,68,68,0.15)', borderColor: '#ef4444', borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 14 }}>
+              <Text style={{ color: '#fca5a5', fontSize: 13 }}>{errorMessage}</Text>
+            </View>
+          )}
 
           <View style={styles.inputContainer}>
             <Ionicons name="mail-outline" size={20} color={COLORS.primaryRose} style={styles.inputIcon} />

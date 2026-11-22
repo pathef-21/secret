@@ -1,7 +1,11 @@
 import axios from 'axios';
+import { Platform } from 'react-native';
 import storage from './storage';
 
-const DEFAULT_API_URL = 'https://man-ak-bae.onrender.com/api';
+const DEFAULT_API_URL =
+  Platform.OS === 'web'
+    ? '/api'
+    : 'https://man-ak-bae.onrender.com/api';
 
 export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || DEFAULT_API_URL;
 
