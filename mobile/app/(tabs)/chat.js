@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import api, { appendImageToFormData } from '../../src/services/api';
+import api, { appendImageToFormData, resolveMediaUrl } from '../../src/services/api';
 import chatWS from '../../src/services/websocket';
 import { useAuth } from '../../src/context/AuthContext';
 import { COLORS } from '../../src/theme/colors';
@@ -181,7 +181,7 @@ export default function ChatScreen() {
           ]}
         >
           {item.attachments && item.attachments.length > 0 && (
-            <Image source={{ uri: item.attachments[0].file }} style={styles.attachedImage} />
+            <Image source={{ uri: resolveMediaUrl(item.attachments[0].file) }} style={styles.attachedImage} />
           )}
 
           <Text style={[styles.messageText, isMe ? styles.myMessageText : styles.partnerMessageText]}>
@@ -230,7 +230,7 @@ export default function ChatScreen() {
         <View style={styles.partnerInfo}>
           <View style={styles.avatarContainer}>
             {partner?.profile?.avatar ? (
-              <Image source={{ uri: partner.profile.avatar }} style={styles.headerAvatar} />
+              <Image source={{ uri: resolveMediaUrl(partner.profile.avatar) }} style={styles.headerAvatar} />
             ) : (
               <View style={[styles.headerAvatar, styles.avatarPlaceholder]}>
                 <Text style={styles.avatarText}>{partner?.first_name?.[0] || 'B'}</Text>
@@ -258,7 +258,16 @@ export default function ChatScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Message List */}
+      {/* Waiting for partner banner if couple has only 1 member */}
+      {couple && (!couple.memberships || couple.memberships.length < 2) && (
+        <View style={{ backgroundColor: 'rgba(242,167,198,0.14)', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: COLORS.surfaceBorder }}>
+          <Text style={{ color: COLORS.primaryRose, fontSize: 12.5, textAlign: 'center', fontWeight: '600' }}>
+            💑 Ton/ta partenaire n’a pas encore rejoint cet espace ! Partage ton code : {couple.invite_code || 'voir Accueil'}
+          </Text>
+        </View>
+      )}
+
+      {/* Message List (chronological, no `inverted` which breaks on react-native-web) */}
       {loading ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator color={COLORS.primaryRose} size="large" />
@@ -266,12 +275,19 @@ export default function ChatScreen() {
       ) : (
         <FlatList
           ref={flatListRef}
-          data={messages}
+          data={[...messages].reverse()}
           keyExtractor={(item) => String(item.id)}
           renderItem={renderMessageItem}
-          inverted
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={[styles.listContent, { flexGrow: 1, justifyContent: 'flex-end' }]}
           showsVerticalScrollIndicator={false}
+          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
+          ListEmptyComponent={
+            <View style={styles.centerContainer}>
+              <Text style={{ color: COLORS.textMuted, fontSize: 14 }}>
+                Aucun message pour l’instant. Envoie un premier mot doux ❤️
+              </Text>
+            </View>
+          }
         />
       )}
 

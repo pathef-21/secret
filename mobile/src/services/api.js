@@ -56,6 +56,20 @@ export async function appendImageToFormData(formData, fieldName, asset, fallback
   }
 }
 
+export function resolveMediaUrl(url) {
+  if (!url) return null;
+  if (typeof url !== 'string') return null;
+  if (url.startsWith('data:') || url.startsWith('blob:')) return url;
+  if (Platform.OS === 'web') {
+    // Route Render /media/* through same-origin Cloudflare Pages proxy to avoid mixed-content http:// blocks
+    const mediaIdx = url.indexOf('/media/');
+    if (mediaIdx !== -1 && (url.includes('onrender.com') || url.startsWith('/media/'))) {
+      return url.slice(mediaIdx);
+    }
+  }
+  return url.replace(/^http:\/\/man-ak-bae\.onrender\.com/, 'https://man-ak-bae.onrender.com');
+}
+
 // Response interceptor to automatically refresh expired token
 api.interceptors.response.use(
   (response) => response,

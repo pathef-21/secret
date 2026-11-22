@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import api, { appendImageToFormData } from '../src/services/api';
+import api, { appendImageToFormData, resolveMediaUrl } from '../src/services/api';
 import { useAuth } from '../src/context/AuthContext';
 import { COLORS } from '../src/theme/colors';
 
@@ -24,6 +24,7 @@ export default function ProfileScreen() {
   const [bio, setBio] = useState(user?.profile?.bio || '');
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [localAvatarPreview, setLocalAvatarPreview] = useState(null);
   const [statusMsg, setStatusMsg] = useState({ type: '', text: '' });
 
   // Notifications toggles
@@ -60,27 +61,34 @@ export default function ProfileScreen() {
 
   const handlePickAvatar = async () => {
     setStatusMsg({ type: '', text: '' });
-    const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
+    try {
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: Platform.OS !== 'web',
+        aspect: [1, 1],
+        quality: 0.8,
+      });
 
-    if (!res.canceled && res.assets[0]) {
-      setUploadingAvatar(true);
-      try {
-        const formData = new FormData();
-        await appendImageToFormData(formData, 'avatar', res.assets[0], 'avatar.jpg');
-        await api.patch('/auth/profile/', formData);
-        await refreshUser();
-        showFeedback('success', 'Succès', 'Photo de profil mise à jour ! 📸');
-      } catch (e) {
-        console.warn('Avatar upload error:', e?.response?.data || e);
-        showFeedback('error', 'Erreur', 'Échec du changement de photo de profil.');
-      } finally {
-        setUploadingAvatar(false);
+      if (!res.canceled && res.assets && res.assets[0]) {
+        const asset = res.assets[0];
+        setLocalAvatarPreview(asset.uri);
+        setUploadingAvatar(true);
+        try {
+          const formData = new FormData();
+          await appendImageToFormData(formData, 'avatar', asset, 'avatar.jpg');
+          await api.patch('/auth/profile/', formData);
+          await refreshUser();
+          showFeedback('success', 'Succès', 'Photo de profil mise à jour ! 📸');
+        } catch (e) {
+          console.warn('Avatar upload error:', e?.response?.data || e);
+          showFeedback('error', 'Erreur', 'Échec du changement de photo de profil.');
+        } finally {
+          setUploadingAvatar(false);
+        }
       }
+    } catch (e) {
+      console.warn('ImagePicker error:', e);
+      showFeedback('error', 'Erreur', 'Impossible d’ouvrir la galerie photo.');
     }
   };
 
@@ -113,8 +121,11 @@ export default function ProfileScreen() {
       {/* Avatar Section */}
       <View style={styles.avatarSection}>
         <View style={styles.avatarWrapper}>
-          {user?.profile?.avatar ? (
-            <Image source={{ uri: user.profile.avatar }} style={styles.avatar} />
+          {localAvatarPreview || user?.profile?.avatar ? (
+            <Image
+              source={{ uri: localAvatarPreview || resolveMediaUrl(user.profile.avatar) }}
+              style={styles.avatar}
+            />
           ) : (
             <View style={[styles.avatar, styles.avatarPlaceholder]}>
               <Text style={styles.avatarInitials}>
