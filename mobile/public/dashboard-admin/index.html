@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#121017" />
+  <title>Man Ak Bae ❤️ — Admin & KPI</title>
+  <link rel="icon" type="image/png" href="./logo.png" />
+  <style>
+    :root {
+      --bg: #0f0d14;
+      --deep: #17151C;
+      --surface: rgba(32, 29, 39, 0.85);
+      --surface-solid: #201D27;
+      --surface-2: #282433;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-rose: rgba(242, 167, 198, 0.35);
+      --rose: #F2A7C6;
+      --rose-strong: #FF6B9D;
+      --violet: #A78BFA;
+      --cyan: #38BDF8;
+      --white: #FFF9F7;
+      --muted: #9A94AC;
+      --green: #4ADE80;
+      --orange: #FB923C;
+      --red: #F87171;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      background-image:
+        radial-gradient(circle at 10% 8%, rgba(242, 167, 198, 0.14), transparent 38%),
+        radial-gradient(circle at 90% 15%, rgba(167, 139, 250, 0.14), transparent 40%),
+        radial-gradient(circle at 50% 95%, rgba(56, 189, 248, 0.08), transparent 45%);
+      color: var(--white);
+      min-height: 100vh;
+      line-height: 1.45;
+    }
+
+    /* ===== LOGIN SCREEN ===== */
+    .login-wrap {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .login-card {
+      width: 100%;
+      max-width: 420px;
+      background: var(--surface);
+      backdrop-filter: blur(18px);
+      border: 1px solid var(--border);
+      border-radius: 28px;
+      padding: 36px 30px;
+      box-shadow: 0 28px 80px rgba(0, 0, 0, 0.6);
+      text-align: center;
+    }
+    .login-logo {
+      width: 92px;
+      height: 92px;
+      border-radius: 24px;
+      object-fit: cover;
+      border: 1.5px solid var(--border-rose);
+      box-shadow: 0 14px 32px rgba(242, 167, 198, 0.22);
+      margin-bottom: 16px;
+    }
+    .login-card h1 {
+      font-size: 24px;
+      font-weight: 800;
+      background: linear-gradient(90deg, var(--rose), var(--violet));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 6px;
+    }
+    .login-card p {
+      font-size: 13.5px;
+      color: var(--muted);
+      margin-bottom: 24px;
+    }
+    .field {
+      width: 100%;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 16px;
+      color: var(--white);
+      font-size: 14px;
+      margin-bottom: 12px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .field:focus {
+      border-color: var(--rose);
+      box-shadow: 0 0 0 3px rgba(242, 167, 198, 0.14);
+    }
+    .btn-grad {
+      width: 100%;
+      background: linear-gradient(135deg, var(--rose), var(--violet));
+      color: var(--deep);
+      font-weight: 800;
+      font-size: 14.5px;
+      padding: 14px;
+      border: none;
+      border-radius: 14px;
+      cursor: pointer;
+      margin-top: 4px;
+      transition: transform 0.15s, opacity 0.15s, box-shadow 0.2s;
+      box-shadow: 0 10px 24px rgba(242, 167, 198, 0.2);
+    }
+    .btn-grad:hover { opacity: 0.94; box-shadow: 0 14px 28px rgba(242, 167, 198, 0.28); }
+    .btn-grad:active { transform: scale(0.98); }
+    .btn-grad:disabled { opacity: 0.6; cursor: not-allowed; }
+    .error-msg {
+      color: var(--red);
+      font-size: 13px;
+      margin-top: 12px;
+      min-height: 20px;
+    }
+
+    /* ===== DASHBOARD LAYOUT ===== */
+    .dashboard {
+      display: none;
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 24px 20px 70px;
+    }
+    .dashboard.visible { display: block; animation: fadeIn 0.35s ease; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .topbar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      background: var(--surface);
+      backdrop-filter: blur(14px);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 16px 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 12px 35px rgba(0, 0, 0, 0.3);
+    }
+    .topbar-left { display: flex; align-items: center; gap: 14px; }
+    .topbar-logo {
+      width: 50px;
+      height: 50px;
+      border-radius: 15px;
+      object-fit: cover;
+      border: 1px solid var(--border-rose);
+    }
+    .topbar-title {
+      font-size: 20px;
+      font-weight: 800;
+      background: linear-gradient(90deg, var(--rose), var(--violet));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .topbar-sub { font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+    .topbar-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+
+    .btn-outline {
+      background: var(--surface-2);
+      color: var(--white);
+      border: 1px solid var(--border);
+      padding: 9px 15px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: border-color 0.2s, color 0.2s, transform 0.15s;
+    }
+    .btn-outline:hover { border-color: var(--rose); color: var(--rose); transform: translateY(-1px); }
+
+    /* ===== KPI GRID ===== */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .kpi-card {
+      background: var(--surface);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      padding: 20px 22px;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+    }
+    .kpi-card::after {
+      content: '';
+      position: absolute;
+      inset: 0 0 auto 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--rose), var(--violet));
+      opacity: 0.55;
+    }
+    .kpi-card.accent-green::after { background: linear-gradient(90deg, var(--green), #22C55E); }
+    .kpi-card.accent-orange::after { background: linear-gradient(90deg, var(--orange), #F43F5E); }
+    .kpi-card.accent-cyan::after { background: linear-gradient(90deg, var(--cyan), var(--violet)); }
+    .kpi-card:hover {
+      transform: translateY(-3px);
+      border-color: var(--border-rose);
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.35);
+    }
+    .kpi-label {
+      font-size: 11.5px;
+      color: var(--muted);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+    .kpi-value {
+      font-size: 34px;
+      font-weight: 800;
+      margin: 10px 0 4px;
+      color: var(--white);
+      letter-spacing: -0.5px;
+    }
+    .kpi-sub { font-size: 12.5px; color: var(--rose); font-weight: 500; }
+    .kpi-icon {
+      position: absolute;
+      top: 18px;
+      right: 18px;
+      font-size: 24px;
+      opacity: 0.9;
+    }
+    .kpi-online .kpi-value { color: var(--green); }
+
+    .pulse-dot {
+      display: inline-block;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--green);
+      margin-right: 6px;
+      box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.7);
+      animation: pulseGreen 1.8s infinite;
+    }
+    @keyframes pulseGreen {
+      0% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.7); }
+      70% { box-shadow: 0 0 0 9px rgba(74, 222, 128, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
+    }
+
+    /* ===== ANALYTICS / PROGRESS BARS ===== */
+    .analytics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 18px;
+      margin-bottom: 24px;
+    }
+    .bar-row { margin-bottom: 14px; }
+    .bar-row:last-child { margin-bottom: 0; }
+    .bar-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+    .bar-meta span:first-child { color: var(--white); font-weight: 600; }
+    .bar-meta span:last-child { color: var(--rose); font-weight: 700; }
+    .bar-track {
+      width: 100%;
+      height: 10px;
+      border-radius: 999px;
+      background: var(--surface-2);
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--rose), var(--violet));
+      transition: width 0.6s ease;
+    }
+    .bar-fill.green { background: linear-gradient(90deg, #22C55E, var(--green)); }
+    .bar-fill.orange { background: linear-gradient(90deg, #F97316, var(--orange)); }
+    .bar-fill.cyan { background: linear-gradient(90deg, #0EA5E9, var(--cyan)); }
+
+    /* ===== PANELS & TABLES ===== */
+    .panel {
+      background: var(--surface);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 22px 24px;
+      margin-bottom: 22px;
+    }
+    .panel-header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    .panel-title { font-size: 17px; font-weight: 800; }
+    .filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+
+    .pill {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 7px 14px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .pill:hover { border-color: var(--border-rose); color: var(--white); }
+    .pill.active {
+      background: rgba(242, 167, 198, 0.16);
+      border-color: var(--rose);
+      color: var(--rose);
+    }
+
+    .search-box {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--white);
+      border-radius: 999px;
+      padding: 8px 15px;
+      font-size: 13px;
+      outline: none;
+      min-width: 220px;
+      transition: border-color 0.2s;
+    }
+    .search-box:focus { border-color: var(--rose); }
+
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+    th {
+      text-align: left;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--muted);
+      padding: 11px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 13px 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      vertical-align: middle;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255, 255, 255, 0.025); }
+
+    .badge-online {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11.5px;
+      font-weight: 700;
+      background: rgba(74, 222, 128, 0.14);
+      color: var(--green);
+    }
+    .badge-offline {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11.5px;
+      font-weight: 600;
+      background: rgba(154, 148, 172, 0.12);
+      color: var(--muted);
+    }
+    .badge-couple {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 10px;
+      font-size: 11.5px;
+      font-weight: 700;
+      background: rgba(242, 167, 198, 0.14);
+      color: var(--rose);
+    }
+    .badge-admin {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 8px;
+      font-size: 10.5px;
+      font-weight: 800;
+      background: rgba(167, 139, 250, 0.2);
+      color: var(--violet);
+      margin-left: 6px;
+    }
+    .badge-flame {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 800;
+      background: rgba(251, 146, 60, 0.15);
+      color: var(--orange);
+    }
+
+    @media (max-width: 640px) {
+      .topbar { padding: 14px 16px; }
+      .panel { padding: 16px; }
+      .search-box { min-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ADMIN LOGIN -->
+  <div id="admin-login-screen" class="login-wrap">
+    <div class="login-card">
+      <img src="./logo.png" alt="Man Ak Bae" class="login-logo" onerror="this.style.display='none'" />
+      <h1>Espace Admin KPI</h1>
+      <p>Connectez-vous avec votre compte administrateur Man Ak Bae</p>
+      <input type="email" id="adm-email" class="field" placeholder="Email administrateur" value="admin@manakbae.com" />
+      <input type="password" id="adm-pass" class="field" placeholder="Mot de passe admin" onkeypress="if(event.key==='Enter') adminLogin()" />
+      <button id="adm-btn" class="btn-grad" onclick="adminLogin()">Accéder au Tableau de Bord</button>
+      <div id="adm-err" class="error-msg"></div>
+      <div style="margin-top: 18px;">
+        <a href="/" style="color: var(--muted); font-size: 12.5px; text-decoration: none;">← Retour à l'application Man Ak Bae</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADMIN DASHBOARD -->
+  <div id="admin-dashboard" class="dashboard">
+    <div class="topbar">
+      <div class="topbar-left">
+        <img src="./logo.png" alt="Man Ak Bae" class="topbar-logo" onerror="this.style.display='none'" />
+        <div>
+          <div class="topbar-title">Man Ak Bae ❤️ — Centre de Contrôle KPI</div>
+          <div class="topbar-sub" id="last-updated-text">Actualisation en direct toutes les 15 secondes</div>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn-outline" onclick="loadStats()">🔄 Actualiser</button>
+        <a class="btn-outline" href="/">❤️ Ouvrir l'App</a>
+        <a class="btn-outline" href="https://man-ak-bae.onrender.com/admin/" target="_blank" rel="noopener">⚙️ Django Admin</a>
+        <button class="btn-outline" style="color: var(--red);" onclick="adminLogout()">Déconnexion</button>
+      </div>
+    </div>
+
+    <!-- 8 KPI CARDS -->
+    <div class="kpi-grid">
+      <div class="kpi-card kpi-online accent-green">
+        <div class="kpi-icon">🟢</div>
+        <div class="kpi-label"><span class="pulse-dot"></span>En ligne</div>
+        <div class="kpi-value" id="kpi-online">0</div>
+        <div class="kpi-sub"><span id="kpi-active-24h">0</span> actifs (24h)</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon">👥</div>
+        <div class="kpi-label">Utilisateurs</div>
+        <div class="kpi-value" id="kpi-users">0</div>
+        <div class="kpi-sub">+<span id="kpi-new-today">0</span> aujourd'hui</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon">💑</div>
+        <div class="kpi-label">Couples créés</div>
+        <div class="kpi-value" id="kpi-couples">0</div>
+        <div class="kpi-sub"><span id="kpi-complete-couples">0</span> complets (2/2)</div>
+      </div>
+      <div class="kpi-card accent-cyan">
+        <div class="kpi-icon">💬</div>
+        <div class="kpi-label">Messages</div>
+        <div class="kpi-value" id="kpi-messages">0</div>
+        <div class="kpi-sub">+<span id="kpi-messages-today">0</span> aujourd'hui</div>
+      </div>
+      <div class="kpi-card accent-orange">
+        <div class="kpi-icon">❤️‍🔥</div>
+        <div class="kpi-label">Record Flammes</div>
+        <div class="kpi-value" id="kpi-flames">0</div>
+        <div class="kpi-sub">Jours consécutifs max</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon">📸</div>
+        <div class="kpi-label">Souvenirs</div>
+        <div class="kpi-value" id="kpi-memories">0</div>
+        <div class="kpi-sub">Photos & moments</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-icon">💌</div>
+        <div class="kpi-label">Lettres d'amour</div>
+        <div class="kpi-value" id="kpi-letters">0</div>
+        <div class="kpi-sub">Surprises envoyées</div>
+      </div>
+      <div class="kpi-card accent-cyan">
+        <div class="kpi-icon">🎮</div>
+        <div class="kpi-label">Jeux & Calendrier</div>
+        <div class="kpi-value" id="kpi-games-events">0</div>
+        <div class="kpi-sub" id="kpi-games-sub">0 parties • 0 RDV</div>
+      </div>
+    </div>
+
+    <!-- VISUAL KPI CHARTS -->
+    <div class="analytics-grid">
+      <div class="panel" style="margin-bottom: 0;">
+        <div class="panel-header" style="margin-bottom: 14px;">
+          <div class="panel-title">📊 Taux d'Engagement</div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-meta">
+            <span>Couples complets (2/2)</span>
+            <span id="rate-couples-text">0%</span>
+          </div>
+          <div class="bar-track"><div class="bar-fill" id="bar-couples" style="width: 0%;"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-meta">
+            <span>Utilisateurs actifs (24h)</span>
+            <span id="rate-active-text">0%</span>
+          </div>
+          <div class="bar-track"><div class="bar-fill green" id="bar-active" style="width: 0%;"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-meta">
+            <span>Utilisateurs en couple</span>
+            <span id="rate-in-couple-text">0%</span>
+          </div>
+          <div class="bar-track"><div class="bar-fill cyan" id="bar-in-couple" style="width: 0%;"></div></div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-bottom: 0;">
+        <div class="panel-header" style="margin-bottom: 14px;">
+          <div class="panel-title">✨ Répartition des Activités</div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-meta">
+            <span>📸 Souvenirs</span>
+            <span id="act-memories-text">0</span>
+          </div>
+          <div class="bar-track"><div class="bar-fill" id="bar-memories" style="width: 0%;"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-meta">
+            <span>💌 Lettres d'amour</span>
+            <span id="act-letters-text">0</span>
+          </div>
+          <div class="bar-track"><div class="bar-fill orange" id="bar-letters" style="width: 0%;"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-meta">
+            <span>🎮 Parties de jeux</span>
+            <span id="act-games-text">0</span>
+          </div>
+          <div class="bar-track"><div class="bar-fill cyan" id="bar-games" style="width: 0%;"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-meta">
+            <span>📅 Événements Calendrier</span>
+            <span id="act-events-text">0</span>
+          </div>
+          <div class="bar-track"><div class="bar-fill green" id="bar-events" style="width: 0%;"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- USERS TABLE -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">👥 Utilisateurs & Présence en direct</div>
+        <div class="filters">
+          <input type="text" id="user-search" class="search-box" placeholder="Rechercher nom, email..." oninput="renderUsers()" />
+          <button class="pill active" id="filter-all" onclick="setFilter('all')">Tous</button>
+          <button class="pill" id="filter-online" onclick="setFilter('online')">🟢 En ligne</button>
+          <button class="pill" id="filter-couple" onclick="setFilter('couple')">💑 En couple</button>
+          <button class="pill" id="filter-admin" onclick="setFilter('admin')">👑 Admins</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Utilisateur</th>
+              <th>Email</th>
+              <th>Statut</th>
+              <th>Espace Couple</th>
+              <th>Inscrit le</th>
+            </tr>
+          </thead>
+          <tbody id="users-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- COUPLES TABLE -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">💍 Espaces de Couple & Flammes</div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Nom du Couple</th>
+              <th>Partenaires</th>
+              <th>Membres</th>
+              <th>Flammes ❤️‍🔥</th>
+              <th>Créé le</th>
+            </tr>
+          </thead>
+          <tbody id="couples-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+<script>
+  let adminToken = localStorage.getItem('mab_admin_access') || null;
+  let allUsers = [];
+  let currentFilter = 'all';
+  let refreshTimer = null;
+
+  function escapeHtml(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  async function adminLogin() {
+    const email = document.getElementById('adm-email').value.trim().toLowerCase();
+    const password = document.getElementById('adm-pass').value;
+    const errEl = document.getElementById('adm-err');
+    const btn = document.getElementById('adm-btn');
+    errEl.textContent = '';
+
+    if (!email || !password) {
+      errEl.textContent = 'Veuillez remplir email et mot de passe.';
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Connexion...';
+    try {
+      const res = await fetch('/api/auth/login/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, username: email, password })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || 'Identifiants invalides.');
+
+      const statsRes = await fetch('/api/auth/admin-stats/', {
+        headers: { 'Authorization': `Bearer ${data.access}` }
+      });
+      if (statsRes.status === 403) {
+        throw new Error("Ce compte n'a pas les droits administrateur.");
+      }
+      if (!statsRes.ok) throw new Error('Erreur lors du chargement des KPI.');
+
+      adminToken = data.access;
+      localStorage.setItem('mab_admin_access', adminToken);
+      const statsData = await statsRes.json();
+      showDashboard(statsData);
+    } catch (e) {
+      errEl.textContent = e.message;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Accéder au Tableau de Bord';
+    }
+  }
+
+  function showDashboard(initialData = null) {
+    document.getElementById('admin-login-screen').style.display = 'none';
+    document.getElementById('admin-dashboard').classList.add('visible');
+    if (initialData) renderAll(initialData);
+    else loadStats();
+
+    clearInterval(refreshTimer);
+    refreshTimer = setInterval(loadStats, 15000);
+  }
+
+  function adminLogout() {
+    localStorage.removeItem('mab_admin_access');
+    adminToken = null;
+    clearInterval(refreshTimer);
+    document.getElementById('admin-dashboard').classList.remove('visible');
+    document.getElementById('admin-login-screen').style.display = 'flex';
+  }
+
+  async function loadStats() {
+    if (!adminToken) return;
+    try {
+      const res = await fetch('/api/auth/admin-stats/', {
+        headers: { 'Authorization': `Bearer ${adminToken}` }
+      });
+      if (res.status === 401 || res.status === 403) {
+        adminLogout();
+        return;
+      }
+      const data = await res.json();
+      renderAll(data);
+    } catch (e) {
+      console.warn('Refresh error:', e);
+    }
+  }
+
+  function renderAll(data) {
+    const k = data.kpis;
+    allUsers = data.users || [];
+
+    document.getElementById('kpi-online').textContent = k.online_users;
+    document.getElementById('kpi-active-24h').textContent = k.active_24h;
+    document.getElementById('kpi-users').textContent = k.total_users;
+    document.getElementById('kpi-new-today').textContent = k.new_users_today;
+    document.getElementById('kpi-couples').textContent = k.total_couples;
+    document.getElementById('kpi-complete-couples').textContent = k.complete_couples;
+    document.getElementById('kpi-messages').textContent = k.total_messages;
+    document.getElementById('kpi-messages-today').textContent = k.messages_today;
+    document.getElementById('kpi-flames').textContent = k.max_flame;
+    document.getElementById('kpi-memories').textContent = k.total_memories;
+    document.getElementById('kpi-letters').textContent = k.total_letters;
+    document.getElementById('kpi-games-events').textContent = k.total_games + k.total_events;
+    document.getElementById('kpi-games-sub').textContent = `${k.total_games} parties • ${k.total_events} RDV`;
+
+    // Engagement percentages
+    const coupleRate = k.total_couples ? Math.round((k.complete_couples / k.total_couples) * 100) : 0;
+    const activeRate = k.total_users ? Math.round((k.active_24h / k.total_users) * 100) : 0;
+    const usersInCouple = allUsers.filter(u => !!u.couple_name).length;
+    const inCoupleRate = allUsers.length ? Math.round((usersInCouple / allUsers.length) * 100) : 0;
+
+    document.getElementById('rate-couples-text').textContent = `${coupleRate}%`;
+    document.getElementById('bar-couples').style.width = `${coupleRate}%`;
+    document.getElementById('rate-active-text').textContent = `${activeRate}%`;
+    document.getElementById('bar-active').style.width = `${activeRate}%`;
+    document.getElementById('rate-in-couple-text').textContent = `${inCoupleRate}%`;
+    document.getElementById('bar-in-couple').style.width = `${inCoupleRate}%`;
+
+    // Activity breakdown bars
+    const maxAct = Math.max(1, k.total_memories, k.total_letters, k.total_games, k.total_events);
+    document.getElementById('act-memories-text').textContent = k.total_memories;
+    document.getElementById('bar-memories').style.width = `${Math.round((k.total_memories / maxAct) * 100)}%`;
+    document.getElementById('act-letters-text').textContent = k.total_letters;
+    document.getElementById('bar-letters').style.width = `${Math.round((k.total_letters / maxAct) * 100)}%`;
+    document.getElementById('act-games-text').textContent = k.total_games;
+    document.getElementById('bar-games').style.width = `${Math.round((k.total_games / maxAct) * 100)}%`;
+    document.getElementById('act-events-text').textContent = k.total_events;
+    document.getElementById('bar-events').style.width = `${Math.round((k.total_events / maxAct) * 100)}%`;
+
+    const upd = new Date(data.updated_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    document.getElementById('last-updated-text').textContent = `Dernière mise à jour à ${upd} (auto toutes les 15s)`;
+
+    renderUsers();
+    renderCouples(data.couples || []);
+  }
+
+  function setFilter(f) {
+    currentFilter = f;
+    ['all', 'online', 'couple', 'admin'].forEach(id => {
+      document.getElementById(`filter-${id}`).classList.toggle('active', id === f);
+    });
+    renderUsers();
+  }
+
+  function renderUsers() {
+    const q = (document.getElementById('user-search').value || '').toLowerCase();
+    const list = allUsers.filter(u => {
+      if (currentFilter === 'online' && !u.is_online) return false;
+      if (currentFilter === 'couple' && !u.couple_name) return false;
+      if (currentFilter === 'admin' && !u.is_staff) return false;
+      if (q) {
+        const hay = `${u.email} ${u.username} ${u.first_name} ${u.nickname}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+
+    const tbody = document.getElementById('users-tbody');
+    if (!list.length) {
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--muted); padding:24px;">Aucun utilisateur trouvé.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = list.map(u => {
+      const joined = new Date(u.date_joined).toLocaleDateString('fr-FR');
+      let statusBadge = '<span class="badge-offline">Hors ligne</span>';
+      if (u.is_online) {
+        statusBadge = '<span class="badge-online"><span class="pulse-dot"></span>En ligne</span>';
+      } else if (u.last_seen) {
+        const t = new Date(u.last_seen).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+        statusBadge = `<span class="badge-offline">Vu ${escapeHtml(t)}</span>`;
+      }
+      return `
+        <tr>
+          <td>
+            <strong>${escapeHtml(u.first_name)}</strong>${u.is_staff ? '<span class="badge-admin">ADMIN</span>' : ''}
+            ${u.nickname ? `<div style="font-size:11.5px; color:var(--muted);">${escapeHtml(u.nickname)}</div>` : ''}
+          </td>
+          <td style="color:var(--muted);">${escapeHtml(u.email)}</td>
+          <td>${statusBadge}</td>
+          <td>${u.couple_name ? `<span class="badge-couple">❤️ ${escapeHtml(u.couple_name)}</span>` : '<span style="color:var(--muted);">Célibataire / En attente</span>'}</td>
+          <td style="color:var(--muted);">${joined}</td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  function renderCouples(couples) {
+    const tbody = document.getElementById('couples-tbody');
+    if (!couples.length) {
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--muted); padding:24px;">Aucun couple créé pour le moment.</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = couples.map(c => {
+      const dt = new Date(c.created_at).toLocaleDateString('fr-FR');
+      return `
+        <tr>
+          <td><strong>${escapeHtml(c.name)}</strong></td>
+          <td>${escapeHtml((c.members || []).join(' ❤️ ')) || '—'}</td>
+          <td><span class="badge-couple">${c.members_count} / 2</span></td>
+          <td><span class="badge-flame">❤️‍🔥 ${c.current_streak} (max ${c.longest_streak})</span></td>
+          <td style="color:var(--muted);">${dt}</td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  if (adminToken) {
+    showDashboard();
+  }
+</script>
+</body>
+</html>
