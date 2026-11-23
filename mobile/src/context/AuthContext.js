@@ -35,6 +35,8 @@ export const AuthProvider = ({ children }) => {
   };
 
   useEffect(() => {
+    // Silently wake up Render free-tier backend as soon as the app opens
+    api.get('/auth/me/').catch(() => {});
     loadStoredSession();
     return () => {
       chatWS.disconnect();

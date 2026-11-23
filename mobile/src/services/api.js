@@ -70,12 +70,25 @@ export function resolveMediaUrl(url) {
   return url.replace(/^http:\/\/man-ak-bae\.onrender\.com/, 'https://man-ak-bae.onrender.com');
 }
 
-// Response interceptor to automatically refresh expired token
+// Response interceptor: retry transient Render cold-start errors + auto-refresh JWT
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    const status = error.response?.status;
+
+    // Auto-retry up to 2 times when Render free tier is waking up (429/502/503/504/network)
+    if (
+      originalRequest &&
+      (status === 429 || status === 502 || status === 503 || status === 504 || !error.response) &&
+      (originalRequest._coldRetry || 0) < 2
+    ) {
+      originalRequest._coldRetry = (originalRequest._coldRetry || 0) + 1;
+      await new Promise((r) => setTimeout(r, 3500));
+      return api(originalRequest);
+    }
+
+    if (status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       try {
         const refreshToken = await storage.getItem('refresh_token');
