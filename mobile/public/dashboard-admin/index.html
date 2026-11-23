@@ -621,6 +621,7 @@
   </div>
 
 <script>
+  const API_BASE = 'https://man-ak-bae.onrender.com/api';
   let adminToken = localStorage.getItem('mab_admin_access') || null;
   let allUsers = [];
   let currentFilter = 'all';
@@ -649,7 +650,7 @@
     btn.disabled = true;
     btn.textContent = 'Connexion...';
     try {
-      const res = await fetch('/api/auth/login/', {
+      const res = await fetch(`${API_BASE}/auth/login/`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, username: email, password })
@@ -657,7 +658,7 @@
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.detail || 'Identifiants invalides.');
 
-      const statsRes = await fetch('/api/auth/admin-stats/', {
+      const statsRes = await fetch(`${API_BASE}/auth/admin-stats/`, {
         headers: { 'Authorization': `Bearer ${data.access}` }
       });
       if (statsRes.status === 403) {
@@ -698,7 +699,7 @@
   async function loadStats() {
     if (!adminToken) return;
     try {
-      const res = await fetch('/api/auth/admin-stats/', {
+      const res = await fetch(`${API_BASE}/auth/admin-stats/`, {
         headers: { 'Authorization': `Bearer ${adminToken}` }
       });
       if (res.status === 401 || res.status === 403) {

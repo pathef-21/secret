@@ -2,10 +2,7 @@ import axios from 'axios';
 import { Platform } from 'react-native';
 import storage from './storage';
 
-const DEFAULT_API_URL =
-  Platform.OS === 'web'
-    ? '/api'
-    : 'https://man-ak-bae.onrender.com/api';
+const DEFAULT_API_URL = 'https://man-ak-bae.onrender.com/api';
 
 export const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || DEFAULT_API_URL;
 
@@ -57,15 +54,10 @@ export async function appendImageToFormData(formData, fieldName, asset, fallback
 }
 
 export function resolveMediaUrl(url) {
-  if (!url) return null;
-  if (typeof url !== 'string') return null;
+  if (!url || typeof url !== 'string') return null;
   if (url.startsWith('data:') || url.startsWith('blob:')) return url;
-  if (Platform.OS === 'web') {
-    // Route Render /media/* through same-origin Cloudflare Pages proxy to avoid mixed-content http:// blocks
-    const mediaIdx = url.indexOf('/media/');
-    if (mediaIdx !== -1 && (url.includes('onrender.com') || url.startsWith('/media/'))) {
-      return url.slice(mediaIdx);
-    }
+  if (url.startsWith('/media/')) {
+    return `https://man-ak-bae.onrender.com${url}`;
   }
   return url.replace(/^http:\/\/man-ak-bae\.onrender\.com/, 'https://man-ak-bae.onrender.com');
 }
