@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,13 +9,18 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../src/services/api';
+import { useAuth } from '../../src/context/AuthContext';
 import { COLORS } from '../../src/theme/colors';
 
 export default function GamesScreen() {
+  const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState('games'); // 'games' | 'answers'
   const [gamesList, setGamesList] = useState([]);
+  const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedGame, setSelectedGame] = useState(null);
   const [currentQuestion, setCurrentQuestion] = useState(null);
@@ -24,42 +29,106 @@ export default function GamesScreen() {
   const [partnerGuess, setPartnerGuess] = useState('');
   const [activeSession, setActiveSession] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [feedbackMsg, setFeedbackMsg] = useState('');
 
-  useEffect(() => {
-    fetchGames();
+  const fetchSessions = useCallback(async () => {
+    try {
+      const res = await api.get('/games/sessions/');
+      setSessions(Array.isArray(res.data) ? res.data : []);
+    } catch (e) {
+      console.warn('Failed to fetch game sessions:', e);
+    }
   }, []);
 
-  const fetchGames = async () => {
+  const fetchGames = useCallback(async () => {
     try {
       const res = await api.get('/games/list/');
-      setGamesList(res.data);
+      setGamesList(Array.isArray(res.data) ? res.data : []);
     } catch (e) {
       console.warn('Failed to fetch games:', e);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchGames();
+    fetchSessions();
+    const interval = setInterval(fetchSessions, 5000);
+    return () => clearInterval(interval);
+  }, [fetchGames, fetchSessions]);
+
+  // Flatten & group all answers from the couple's sessions by question
+  const groupedAnswers = React.useMemo(() => {
+    const map = new Map();
+    for (const sess of sessions) {
+      for (const ans of sess.answers || []) {
+        const qId = ans.question?.id || ans.id;
+        const key = `${sess.id}_${qId}`;
+        if (!map.has(key)) {
+          map.set(key, {
+            key,
+            sessionId: sess.id,
+            gameType: sess.game_type,
+            gameTitle: sess.game_type_display || sess.game_type,
+            question: ans.question,
+            answers: [],
+            latestAt: ans.created_at,
+          });
+        }
+        const entry = map.get(key);
+        entry.answers.push(ans);
+        if (ans.created_at > entry.latestAt) {
+          entry.latestAt = ans.created_at;
+        }
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => (b.latestAt || '').localeCompare(a.latestAt || ''));
+  }, [sessions]);
+
+  const partnerAnswersCount = React.useMemo(() => {
+    return groupedAnswers.filter((g) => g.answers.some((a) => a.user?.id !== user?.id)).length;
+  }, [groupedAnswers, user]);
 
   const openGameModal = async (game) => {
     setSelectedGame(game);
     setFetchingQuestion(true);
     setAnswerText('');
     setPartnerGuess('');
+    setFeedbackMsg('');
 
     try {
-      // 1. Create or join session
-      const sessionRes = await api.post('/games/sessions/', { game_type: game.id });
-      setActiveSession(sessionRes.data);
+      // Reuse latest session of same game_type if available so partner answers stay grouped
+      const existing = sessions.find((s) => s.game_type === game.id);
+      if (existing) {
+        setActiveSession(existing);
+      } else {
+        const sessionRes = await api.post('/games/sessions/', { game_type: game.id });
+        setActiveSession(sessionRes.data);
+      }
 
-      // 2. Fetch random question
       const qRes = await api.get(`/games/question/${game.id}/`);
       setCurrentQuestion(qRes.data);
     } catch (e) {
-      Alert.alert('Erreur', 'Impossible de charger la question pour ce jeu.');
+      if (Platform.OS !== 'web') Alert.alert('Erreur', 'Impossible de charger la question pour ce jeu.');
       setSelectedGame(null);
     } finally {
       setFetchingQuestion(false);
     }
+  };
+
+  const openReplyToPartnerQuestion = (group) => {
+    const gameMeta = gamesList.find((g) => g.id === group.gameType) || {
+      id: group.gameType,
+      title: group.gameTitle,
+    };
+    setSelectedGame(gameMeta);
+    setActiveSession({ id: group.sessionId, game_type: group.gameType });
+    setCurrentQuestion(group.question);
+    setAnswerText('');
+    setPartnerGuess('');
+    setFeedbackMsg('');
+    setFetchingQuestion(false);
   };
 
   const nextQuestion = async () => {
@@ -67,11 +136,12 @@ export default function GamesScreen() {
     setFetchingQuestion(true);
     setAnswerText('');
     setPartnerGuess('');
+    setFeedbackMsg('');
     try {
       const qRes = await api.get(`/games/question/${selectedGame.id}/`);
       setCurrentQuestion(qRes.data);
     } catch (e) {
-      Alert.alert('Erreur', 'Impossible de tirer une nouvelle question.');
+      setFeedbackMsg('Impossible de tirer une nouvelle question.');
     } finally {
       setFetchingQuestion(false);
     }
@@ -80,21 +150,31 @@ export default function GamesScreen() {
   const submitAnswer = async (selectedOption = null) => {
     const finalAnswer = selectedOption || answerText.trim();
     if (!finalAnswer) {
-      Alert.alert('Réponse requise', 'Veuillez saisir votre réponse.');
+      setFeedbackMsg('Veuillez saisir votre réponse.');
       return;
     }
 
     setSubmitting(true);
+    setFeedbackMsg('');
     try {
       await api.post(`/games/sessions/${activeSession.id}/answer/`, {
         question_id: currentQuestion.id,
         answer_text: finalAnswer,
         partner_guess: partnerGuess.trim(),
       });
-      Alert.alert('Enregistré ! ❤️', 'Votre réponse a été enregistrée avec succès.');
-      nextQuestion();
+      await fetchSessions();
+      setFeedbackMsg('✅ Réponse envoyée ! Ton/ta partenaire peut la voir dans « Nos Réponses » ❤️');
+      setAnswerText('');
+      setPartnerGuess('');
+      if (Platform.OS !== 'web') {
+        Alert.alert('Enregistré ! ❤️', 'Votre réponse a été partagée avec votre partenaire.');
+      }
+      setTimeout(() => {
+        nextQuestion();
+      }, 1200);
     } catch (e) {
-      Alert.alert('Erreur', 'Échec de l’envoi de votre réponse.');
+      setFeedbackMsg('Échec de l’envoi de votre réponse.');
+      if (Platform.OS !== 'web') Alert.alert('Erreur', 'Échec de l’envoi de votre réponse.');
     } finally {
       setSubmitting(false);
     }
@@ -114,39 +194,154 @@ export default function GamesScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>Jeux Pour Deux ❤️</Text>
         <Text style={styles.subtitle}>
-          Riez, confiez-vous et testez votre complicité amoureuse
+          Riez, confiez-vous et découvrez les réponses de votre moitié
         </Text>
       </View>
 
-      {/* Grid of Games */}
-      <View style={styles.grid}>
-        {gamesList.map((game) => (
-          <TouchableOpacity
-            key={game.id}
-            style={styles.gameCard}
-            onPress={() => openGameModal(game)}
-            activeOpacity={0.8}
-          >
-            <View style={styles.iconContainer}>
-              <Ionicons name={game.icon || 'heart-outline'} size={28} color={COLORS.primaryRose} />
-            </View>
-            <Text style={styles.gameTitle}>{game.title}</Text>
-            <Text style={styles.gameDescription} numberOfLines={2}>
-              {game.description}
-            </Text>
-            <View style={styles.playPill}>
-              <Text style={styles.playText}>Jouer ensemble</Text>
-              <Ionicons name="arrow-forward" size={12} color={COLORS.deepBlack} />
-            </View>
-          </TouchableOpacity>
-        ))}
+      {/* Switcher Jeux / Nos Réponses */}
+      <View style={styles.tabBar}>
+        <TouchableOpacity
+          style={[styles.tabBtn, activeTab === 'games' && styles.tabBtnActive]}
+          onPress={() => setActiveTab('games')}
+        >
+          <Text style={[styles.tabBtnText, activeTab === 'games' && styles.tabBtnTextActive]}>
+            🎲 Jeux ({gamesList.length})
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabBtn, activeTab === 'answers' && styles.tabBtnActive]}
+          onPress={() => {
+            setActiveTab('answers');
+            fetchSessions();
+          }}
+        >
+          <Text style={[styles.tabBtnText, activeTab === 'answers' && styles.tabBtnTextActive]}>
+            💌 Nos Réponses ({groupedAnswers.length})
+          </Text>
+        </TouchableOpacity>
       </View>
+
+      {activeTab === 'games' ? (
+        <>
+          {partnerAnswersCount > 0 && (
+            <TouchableOpacity
+              style={styles.partnerBanner}
+              onPress={() => setActiveTab('answers')}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.partnerBannerText}>
+                💌 Ton/ta partenaire a répondu à {partnerAnswersCount} question(s) ! Voir →
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Grid of Games */}
+          <View style={styles.grid}>
+            {gamesList.map((game) => (
+              <TouchableOpacity
+                key={game.id}
+                style={styles.gameCard}
+                onPress={() => openGameModal(game)}
+                activeOpacity={0.8}
+              >
+                <View style={styles.iconContainer}>
+                  <Ionicons name={game.icon || 'heart-outline'} size={28} color={COLORS.primaryRose} />
+                </View>
+                <Text style={styles.gameTitle}>{game.title}</Text>
+                <Text style={styles.gameDescription} numberOfLines={2}>
+                  {game.description}
+                </Text>
+                <View style={styles.playPill}>
+                  <Text style={styles.playText}>Jouer ensemble</Text>
+                  <Ionicons name="arrow-forward" size={12} color={COLORS.deepBlack} />
+                </View>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </>
+      ) : (
+        /* Shared Couple Answers History */
+        <View style={{ gap: 14 }}>
+          {groupedAnswers.length === 0 ? (
+            <View style={styles.emptyBox}>
+              <Text style={{ fontSize: 36, marginBottom: 10 }}>🎲</Text>
+              <Text style={styles.emptyTitle}>Aucune réponse pour le moment</Text>
+              <Text style={styles.emptySub}>
+                Lance un jeu dans l’onglet « Jeux » : tes réponses et celles de ton/ta partenaire apparaîtront ici en direct !
+              </Text>
+            </View>
+          ) : (
+            groupedAnswers.map((group) => {
+              const iAnswered = group.answers.some((a) => a.user?.id === user?.id);
+              return (
+                <View key={group.key} style={styles.answerCard}>
+                  <View style={styles.answerCardHeader}>
+                    <Text style={styles.answerGameBadge}>{group.gameTitle}</Text>
+                    <Text style={styles.answerDate}>
+                      {new Date(group.latestAt).toLocaleString('fr-FR', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </Text>
+                  </View>
+
+                  <Text style={styles.answerQuestion}>
+                    « {group.question?.question_text || 'Question'} »
+                  </Text>
+
+                  <View style={{ gap: 10, marginTop: 12 }}>
+                    {group.answers.map((ans) => {
+                      const isMe = ans.user?.id === user?.id;
+                      const authorName =
+                        ans.user?.profile?.nickname || ans.user?.first_name || ans.user?.username || 'Partenaire';
+                      return (
+                        <View
+                          key={String(ans.id)}
+                          style={[
+                            styles.singleAnswerBox,
+                            isMe ? styles.myAnswerBox : styles.partnerAnswerBox,
+                          ]}
+                        >
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                            <Text style={[styles.authorLabel, isMe ? { color: COLORS.primaryRose } : { color: '#A78BFA' }]}>
+                              {isMe ? `Moi (${authorName})` : `❤️ ${authorName}`}
+                            </Text>
+                            {ans.is_matched && (
+                              <Text style={{ color: '#4ADE80', fontSize: 11, fontWeight: '800' }}>✨ Match !</Text>
+                            )}
+                          </View>
+                          <Text style={styles.answerContent}>{ans.answer_text}</Text>
+                          {!!ans.partner_guess && (
+                            <Text style={styles.guessContent}>
+                              🔮 Pensait que l’autre répondrait : « {ans.partner_guess} »
+                            </Text>
+                          )}
+                        </View>
+                      );
+                    })}
+                  </View>
+
+                  {!iAnswered && (
+                    <TouchableOpacity
+                      style={styles.replyBtn}
+                      onPress={() => openReplyToPartnerQuestion(group)}
+                    >
+                      <Text style={styles.replyBtnText}>Répondre aussi à cette question 💬</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              );
+            })
+          )}
+        </View>
+      )}
 
       {/* Interactive Game Modal */}
       <Modal visible={!!selectedGame} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            {/* Modal Header */}
             <View style={styles.modalHeader}>
               <View>
                 <Text style={styles.modalGameType}>{selectedGame?.title}</Text>
@@ -159,6 +354,30 @@ export default function GamesScreen() {
               </TouchableOpacity>
             </View>
 
+            {!!feedbackMsg && (
+              <View
+                style={{
+                  backgroundColor: feedbackMsg.startsWith('✅')
+                    ? 'rgba(74,222,128,0.15)'
+                    : 'rgba(239,68,68,0.15)',
+                  borderRadius: 12,
+                  padding: 10,
+                  marginBottom: 12,
+                }}
+              >
+                <Text
+                  style={{
+                    color: feedbackMsg.startsWith('✅') ? '#86efac' : '#fca5a5',
+                    fontSize: 13,
+                    textAlign: 'center',
+                    fontWeight: '600',
+                  }}
+                >
+                  {feedbackMsg}
+                </Text>
+              </View>
+            )}
+
             {fetchingQuestion ? (
               <View style={styles.modalLoading}>
                 <ActivityIndicator size="large" color={COLORS.primaryRose} />
@@ -166,12 +385,10 @@ export default function GamesScreen() {
               </View>
             ) : currentQuestion ? (
               <ScrollView showsVerticalScrollIndicator={false}>
-                {/* Question Box */}
                 <View style={styles.questionBox}>
                   <Text style={styles.questionText}>« {currentQuestion.question_text} »</Text>
                 </View>
 
-                {/* Multiple Choice Options (si Tu préfères quoi ou Quiz) */}
                 {currentQuestion.options && currentQuestion.options.length > 0 ? (
                   <View style={styles.optionsList}>
                     {currentQuestion.options.map((opt, idx) => (
@@ -186,9 +403,8 @@ export default function GamesScreen() {
                     ))}
                   </View>
                 ) : (
-                  /* Free Text Answer */
                   <View style={styles.freeFormAnswer}>
-                    <Text style={styles.inputLabel}>Ta réponse secrète :</Text>
+                    <Text style={styles.inputLabel}>Ta réponse :</Text>
                     <TextInput
                       style={styles.textInput}
                       placeholder="Écris ce que tu penses sincèrement..."
@@ -254,7 +470,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.deepBlack,
   },
   header: {
-    marginBottom: 24,
+    marginBottom: 18,
   },
   title: {
     fontSize: 28,
@@ -266,6 +482,46 @@ const styles = StyleSheet.create({
     color: COLORS.textSecondary,
     marginTop: 4,
     lineHeight: 20,
+  },
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: COLORS.surface,
+    borderRadius: 16,
+    padding: 4,
+    marginBottom: 18,
+    borderWidth: 1,
+    borderColor: COLORS.surfaceBorder,
+  },
+  tabBtn: {
+    flex: 1,
+    paddingVertical: 11,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  tabBtnActive: {
+    backgroundColor: COLORS.primaryRose,
+  },
+  tabBtnText: {
+    color: COLORS.textSecondary,
+    fontSize: 13.5,
+    fontWeight: '700',
+  },
+  tabBtnTextActive: {
+    color: COLORS.deepBlack,
+  },
+  partnerBanner: {
+    backgroundColor: 'rgba(167, 139, 250, 0.16)',
+    borderColor: '#A78BFA',
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 16,
+  },
+  partnerBannerText: {
+    color: '#FFF9F7',
+    fontSize: 13.5,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   grid: {
     gap: 14,
@@ -313,6 +569,95 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: COLORS.deepBlack,
   },
+  emptyBox: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 22,
+    padding: 28,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.surfaceBorder,
+  },
+  emptyTitle: {
+    color: COLORS.textPrimary,
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  emptySub: {
+    color: COLORS.textSecondary,
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 19,
+  },
+  answerCard: {
+    backgroundColor: COLORS.surface,
+    borderRadius: 22,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: COLORS.surfaceBorder,
+  },
+  answerCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  answerGameBadge: {
+    color: COLORS.primaryRose,
+    fontSize: 11.5,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  answerDate: {
+    color: COLORS.textMuted,
+    fontSize: 11.5,
+  },
+  answerQuestion: {
+    color: COLORS.textPrimary,
+    fontSize: 15.5,
+    fontWeight: '700',
+    lineHeight: 22,
+  },
+  singleAnswerBox: {
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+  },
+  myAnswerBox: {
+    backgroundColor: 'rgba(242, 167, 198, 0.08)',
+    borderColor: 'rgba(242, 167, 198, 0.25)',
+  },
+  partnerAnswerBox: {
+    backgroundColor: 'rgba(167, 139, 250, 0.1)',
+    borderColor: 'rgba(167, 139, 250, 0.35)',
+  },
+  authorLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  answerContent: {
+    color: COLORS.textPrimary,
+    fontSize: 14.5,
+    lineHeight: 20,
+  },
+  guessContent: {
+    color: COLORS.textSecondary,
+    fontSize: 12,
+    fontStyle: 'italic',
+    marginTop: 6,
+  },
+  replyBtn: {
+    backgroundColor: COLORS.primaryRose,
+    borderRadius: 12,
+    paddingVertical: 10,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  replyBtnText: {
+    color: COLORS.deepBlack,
+    fontSize: 13,
+    fontWeight: '700',
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.75)',
@@ -331,7 +676,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   modalGameType: {
     fontSize: 20,
@@ -429,4 +774,3 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
-
