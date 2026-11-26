@@ -154,7 +154,16 @@ export default function ChatScreen() {
     try {
       const res = await api.get('/chat/messages/');
       const list = Array.isArray(res.data) ? res.data : (res.data?.results || []);
-      setMessages(list);
+      setMessages((prev) => {
+        // Avoid resetting <audio> elements every 3s when nothing changed (important for R2 presigned URLs)
+        if (
+          prev.length === list.length &&
+          (list.length === 0 || String(prev[0]?.id) === String(list[0]?.id))
+        ) {
+          return prev;
+        }
+        return list;
+      });
       markAsRead();
     } catch (e) {
       const errDetail = e?.response?.data?.detail;
@@ -424,10 +433,13 @@ export default function ChatScreen() {
       }
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const mimeType = MediaRecorder.isTypeSupported('audio/webm')
-          ? 'audio/webm'
-          : MediaRecorder.isTypeSupported('audio/mp4')
+        // Prefer audio/mp4 first so voice notes play on BOTH iPhone Safari and Android Chrome
+        const mimeType = MediaRecorder.isTypeSupported('audio/mp4')
           ? 'audio/mp4'
+          : MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+          ? 'audio/webm;codecs=opus'
+          : MediaRecorder.isTypeSupported('audio/webm')
+          ? 'audio/webm'
           : '';
         const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
         mediaChunksRef.current = [];
@@ -622,6 +634,7 @@ export default function ChatScreen() {
               {Platform.OS === 'web' ? (
                 <audio
                   controls
+                  preload="metadata"
                   src={mediaUrl}
                   style={{ width: 220, height: 36, borderRadius: 12 }}
                 />
