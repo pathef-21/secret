@@ -9,6 +9,7 @@ import {
   Alert,
   ScrollView,
   Share,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,14 +23,19 @@ export default function CoupleSetupScreen() {
   const [startDate, setStartDate] = useState('');
   const [joinCode, setJoinCode] = useState('');
   const [generatedInvite, setGeneratedInvite] = useState(null);
+  const [copied, setCopied] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
 
   const { refreshCouple, logout } = useAuth();
   const router = useRouter();
 
   const handleCreateCouple = async () => {
+    setErrorMsg('');
     if (!coupleName.trim()) {
-      Alert.alert('Nom requis', 'Veuillez donner un joli nom à votre espace de couple.');
+      const msg = 'Veuillez donner un joli nom à votre espace de couple.';
+      setErrorMsg(msg);
+      if (Platform.OS !== 'web') Alert.alert('Nom requis', msg);
       return;
     }
 
@@ -43,18 +49,45 @@ export default function CoupleSetupScreen() {
         code: res.data.invitation_code,
         expiresAt: res.data.invitation_expires_at,
       });
-      await refreshCouple();
+      // Do NOT call refreshCouple() here so RootLayoutNav doesn't redirect before the user copies the code!
     } catch (error) {
       const msg = error.response?.data?.detail || 'Impossible de créer le couple.';
-      Alert.alert('Erreur', msg);
+      setErrorMsg(msg);
+      if (Platform.OS !== 'web') Alert.alert('Erreur', msg);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleContinueToApp = async () => {
+    setLoading(true);
+    try {
+      await refreshCouple();
+      router.replace('/(tabs)');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCopyCode = async () => {
+    if (!generatedInvite?.code) return;
+    if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(generatedInvite.code);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 3000);
+        return;
+      } catch {}
+    }
+    shareCode();
+  };
+
   const handleJoinCouple = async () => {
+    setErrorMsg('');
     if (!joinCode.trim()) {
-      Alert.alert('Code manquant', 'Veuillez saisir le code d’invitation reçu de votre partenaire.');
+      const msg = 'Veuillez saisir le code d’invitation reçu de votre partenaire.';
+      setErrorMsg(msg);
+      if (Platform.OS !== 'web') Alert.alert('Code manquant', msg);
       return;
     }
 
@@ -65,7 +98,8 @@ export default function CoupleSetupScreen() {
       router.replace('/(tabs)');
     } catch (error) {
       const msg = error.response?.data?.detail || 'Code invalide ou espace déjà complet.';
-      Alert.alert('Échec', msg);
+      setErrorMsg(msg);
+      if (Platform.OS !== 'web') Alert.alert('Échec', msg);
     } finally {
       setLoading(false);
     }
@@ -94,6 +128,11 @@ export default function CoupleSetupScreen() {
       </View>
 
       {/* Onglets Choix */}
+      {!!errorMsg && (
+        <View style={{ backgroundColor: 'rgba(239,68,68,0.15)', borderColor: '#ef4444', borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 16 }}>
+          <Text style={{ color: '#fca5a5', fontSize: 13, textAlign: 'center' }}>{errorMsg}</Text>
+        </View>
+      )}
       {!generatedInvite && (
         <View style={styles.tabContainer}>
           <TouchableOpacity
@@ -157,19 +196,26 @@ export default function CoupleSetupScreen() {
           </Text>
 
           <View style={styles.codeBox}>
-            <Text style={styles.codeText}>{generatedInvite.code}</Text>
+            <Text style={styles.codeText} selectable>{generatedInvite.code}</Text>
           </View>
 
-          <TouchableOpacity style={styles.shareButton} onPress={shareCode}>
-            <Ionicons name="share-social-outline" size={20} color={COLORS.deepBlack} style={{ marginRight: 8 }} />
-            <Text style={styles.shareButtonText}>Partager le code à mon partenaire</Text>
+          <TouchableOpacity style={styles.shareButton} onPress={handleCopyCode}>
+            <Ionicons name={copied ? 'checkmark-circle-outline' : 'copy-outline'} size={20} color={COLORS.deepBlack} style={{ marginRight: 8 }} />
+            <Text style={styles.shareButtonText}>
+              {copied ? 'Code copié ! ✅' : 'Copier le code d’invitation'}
+            </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.continueButton}
-            onPress={() => router.replace('/(tabs)')}
+            onPress={handleContinueToApp}
+            disabled={loading}
           >
-            <Text style={styles.continueButtonText}>Accéder à l'application</Text>
+            {loading ? (
+              <ActivityIndicator color={COLORS.primaryRose} />
+            ) : (
+              <Text style={styles.continueButtonText}>Accéder à l'application</Text>
+            )}
           </TouchableOpacity>
         </View>
       )}

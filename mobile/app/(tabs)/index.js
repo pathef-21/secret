@@ -8,10 +8,11 @@ import {
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import api from '../../src/services/api';
+import api, { resolveMediaUrl } from '../../src/services/api';
 import { useAuth } from '../../src/context/AuthContext';
 import { COLORS } from '../../src/theme/colors';
 
@@ -20,7 +21,33 @@ export default function HomeScreen() {
   const [dashboard, setDashboard] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [inviteCode, setInviteCode] = useState('');
+  const [loadingInvite, setLoadingInvite] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
   const router = useRouter();
+
+  const handleGetInviteCode = async () => {
+    setLoadingInvite(true);
+    try {
+      const res = await api.post('/couples/invite/');
+      setInviteCode(res.data.code || '');
+    } catch (e) {
+      console.warn('Invite generation error:', e);
+    } finally {
+      setLoadingInvite(false);
+    }
+  };
+
+  const handleCopyInviteCode = async () => {
+    if (!inviteCode) return;
+    if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(inviteCode);
+        setCopiedCode(true);
+        setTimeout(() => setCopiedCode(false), 3000);
+      } catch {}
+    }
+  };
 
   const fetchDashboardData = useCallback(async () => {
     try {
@@ -73,12 +100,55 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Invite Partner Card when partner hasn't joined yet */}
+      {!partner && (
+        <View style={{ backgroundColor: 'rgba(242,167,198,0.12)', borderColor: COLORS.primaryRose, borderWidth: 1, borderRadius: 20, padding: 18, marginBottom: 18, alignItems: 'center' }}>
+          <Text style={{ color: COLORS.primaryRose, fontSize: 15, fontWeight: '800', marginBottom: 6 }}>
+            💑 Inviter ton/ta partenaire
+          </Text>
+          <Text style={{ color: COLORS.textSecondary, fontSize: 12.5, textAlign: 'center', marginBottom: 12 }}>
+            Partage ce code à ton Bae pour qu’il/elle rejoigne votre espace (« Rejoindre mon Bae »).
+          </Text>
+          {inviteCode ? (
+            <>
+              <View style={{ backgroundColor: COLORS.surfaceElevated, borderRadius: 12, paddingHorizontal: 20, paddingVertical: 10, borderWidth: 1.5, borderColor: COLORS.primaryRose, borderStyle: 'dashed', marginBottom: 10 }}>
+                <Text style={{ color: COLORS.primaryRose, fontSize: 24, fontWeight: '800', letterSpacing: 4 }} selectable>
+                  {inviteCode}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={{ backgroundColor: COLORS.primaryRose, borderRadius: 12, paddingHorizontal: 18, paddingVertical: 10 }}
+                onPress={handleCopyInviteCode}
+              >
+                <Text style={{ color: COLORS.deepBlack, fontWeight: '700', fontSize: 13 }}>
+                  {copiedCode ? 'Code copié ! ✅' : '📋 Copier le code'}
+                </Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <TouchableOpacity
+              style={{ backgroundColor: COLORS.primaryRose, borderRadius: 12, paddingHorizontal: 18, paddingVertical: 10 }}
+              onPress={handleGetInviteCode}
+              disabled={loadingInvite}
+            >
+              {loadingInvite ? (
+                <ActivityIndicator color={COLORS.deepBlack} />
+              ) : (
+                <Text style={{ color: COLORS.deepBlack, fontWeight: '700', fontSize: 13 }}>
+                  Afficher mon code d’invitation
+                </Text>
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
       {/* Love Match Header (Les deux amoureux) */}
       <View style={styles.loveMatchCard}>
         <View style={styles.partnerColumn}>
           <View style={styles.avatarWrapper}>
             {user?.profile?.avatar ? (
-              <Image source={{ uri: user.profile.avatar }} style={styles.avatar} />
+              <Image source={{ uri: resolveMediaUrl(user.profile.avatar) }} style={styles.avatar} />
             ) : (
               <View style={[styles.avatar, styles.avatarPlaceholder]}>
                 <Text style={styles.avatarInitials}>{user?.first_name?.[0] || user?.username?.[0] || 'M'}</Text>
@@ -100,7 +170,7 @@ export default function HomeScreen() {
         <View style={styles.partnerColumn}>
           <View style={styles.avatarWrapper}>
             {partner?.profile?.avatar ? (
-              <Image source={{ uri: partner.profile.avatar }} style={styles.avatar} />
+              <Image source={{ uri: resolveMediaUrl(partner.profile.avatar) }} style={styles.avatar} />
             ) : (
               <View style={[styles.avatar, styles.avatarPlaceholder]}>
                 <Text style={styles.avatarInitials}>{partner?.first_name?.[0] || partner?.username?.[0] || 'B'}</Text>
