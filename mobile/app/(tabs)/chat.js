@@ -60,11 +60,81 @@ export default function ChatScreen() {
   const [callerName, setCallerName] = useState('');
   const [callSeconds, setCallSeconds] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
+  const [isSpeakerOn, setIsSpeakerOn] = useState(true);
   const peerConnRef = useRef(null);
   const localStreamRef = useRef(null);
   const remoteAudioRef = useRef(null);
   const pendingOfferRef = useRef(null);
   const callTimerRef = useRef(null);
+  const ringIntervalRef = useRef(null);
+  const audioCtxRef = useRef(null);
+
+  const stopRingtone = useCallback(() => {
+    clearInterval(ringIntervalRef.current);
+    ringIntervalRef.current = null;
+    if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.vibrate) {
+      try {
+        navigator.vibrate(0);
+      } catch {}
+    }
+  }, []);
+
+  const playToneBurst = useCallback((mode) => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    try {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new AudioCtx();
+      }
+      const ctx = audioCtxRef.current;
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
+      const now = ctx.currentTime;
+
+      const beep = (freq, start, duration, gainVal = 0.18) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, start);
+        gain.gain.setValueAtTime(0.001, start);
+        gain.gain.exponentialRampToValueAtTime(gainVal, start + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(start);
+        osc.stop(start + duration + 0.02);
+      };
+
+      if (mode === 'incoming') {
+        // Warm double ringtone + phone vibration
+        beep(659.25, now, 0.22, 0.22);
+        beep(880.0, now + 0.24, 0.28, 0.22);
+        beep(659.25, now + 0.65, 0.22, 0.22);
+        beep(880.0, now + 0.89, 0.28, 0.22);
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          navigator.vibrate([250, 120, 250]);
+        }
+      } else {
+        // Outgoing ringback tone ("tuuut...")
+        beep(440, now, 0.7, 0.12);
+      }
+    } catch {}
+  }, []);
+
+  // Play ringtone automatically while calling or receiving an incoming call
+  useEffect(() => {
+    stopRingtone();
+    if (callStatus === 'incoming' || callStatus === 'calling') {
+      playToneBurst(callStatus);
+      ringIntervalRef.current = setInterval(
+        () => playToneBurst(callStatus),
+        callStatus === 'incoming' ? 2200 : 2800
+      );
+    }
+    return () => stopRingtone();
+  }, [callStatus, playToneBurst, stopRingtone]);
 
   const flatListRef = useRef(null);
   const typingTimeoutRef = useRef(null);
@@ -97,6 +167,7 @@ export default function ChatScreen() {
 
   // Cleanup WebRTC call resources
   const cleanupCall = useCallback(() => {
+    stopRingtone();
     clearInterval(callTimerRef.current);
     callTimerRef.current = null;
     if (peerConnRef.current) {
@@ -112,13 +183,18 @@ export default function ChatScreen() {
     if (remoteAudioRef.current) {
       try {
         remoteAudioRef.current.srcObject = null;
+        if (remoteAudioRef.current.parentNode) {
+          remoteAudioRef.current.parentNode.removeChild(remoteAudioRef.current);
+        }
       } catch {}
+      remoteAudioRef.current = null;
     }
     pendingOfferRef.current = null;
     setCallStatus('idle');
     setCallSeconds(0);
     setIsMuted(false);
-  }, []);
+    setIsSpeakerOn(true);
+  }, [stopRingtone]);
 
   const createPeerConnection = useCallback(() => {
     if (typeof RTCPeerConnection === 'undefined') {
@@ -136,6 +212,9 @@ export default function ChatScreen() {
           const audioEl = document.createElement('audio');
           audioEl.autoplay = true;
           audioEl.playsInline = true;
+          audioEl.volume = 1.0;
+          audioEl.style.display = 'none';
+          document.body.appendChild(audioEl);
           remoteAudioRef.current = audioEl;
         }
         remoteAudioRef.current.srcObject = event.streams[0];
@@ -224,6 +303,24 @@ export default function ChatScreen() {
         t.enabled = !nextMuted;
       });
       setIsMuted(nextMuted);
+    }
+  };
+
+  const toggleSpeakerCall = async () => {
+    const nextSpeaker = !isSpeakerOn;
+    setIsSpeakerOn(nextSpeaker);
+    if (Platform.OS === 'web' && remoteAudioRef.current) {
+      remoteAudioRef.current.volume = nextSpeaker ? 1.0 : 0.35;
+      remoteAudioRef.current.muted = false;
+      remoteAudioRef.current.play().catch(() => {});
+    } else if (Platform.OS !== 'web') {
+      try {
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: true,
+          playsInSilentModeIOS: true,
+          playThroughEarpieceAndroid: !nextSpeaker,
+        });
+      } catch {}
     }
   };
 
@@ -642,7 +739,20 @@ export default function ChatScreen() {
               </>
             ) : (
               <>
-                <TouchableOpacity style={styles.muteCallBtn} onPress={toggleMuteCall}>
+                <TouchableOpacity
+                  style={[styles.muteCallBtn, isSpeakerOn && { backgroundColor: COLORS.primaryRose }]}
+                  onPress={toggleSpeakerCall}
+                >
+                  <Ionicons
+                    name={isSpeakerOn ? 'volume-high' : 'volume-low'}
+                    size={18}
+                    color={isSpeakerOn ? COLORS.deepBlack : '#fff'}
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.muteCallBtn, isMuted && { backgroundColor: '#F59E0B' }]}
+                  onPress={toggleMuteCall}
+                >
                   <Ionicons name={isMuted ? 'mic-off' : 'mic'} size={18} color="#fff" />
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.hangupCallBtn} onPress={() => endVoiceCall(false)}>
