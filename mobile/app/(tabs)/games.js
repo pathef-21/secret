@@ -296,6 +296,7 @@ export default function GamesScreen() {
                       const isMe = ans.user?.id === user?.id;
                       const authorName =
                         ans.user?.profile?.nickname || ans.user?.first_name || ans.user?.username || 'Partenaire';
+                      const isHiddenSecret = group.gameType === 'guess_my_answer' && !isMe && !iAnswered;
                       return (
                         <View
                           key={String(ans.id)}
@@ -308,15 +309,23 @@ export default function GamesScreen() {
                             <Text style={[styles.authorLabel, isMe ? { color: COLORS.primaryRose } : { color: '#A78BFA' }]}>
                               {isMe ? `Moi (${authorName})` : `❤️ ${authorName}`}
                             </Text>
-                            {ans.is_matched && (
+                            {ans.is_matched && !isHiddenSecret && (
                               <Text style={{ color: '#4ADE80', fontSize: 11, fontWeight: '800' }}>✨ Match !</Text>
                             )}
                           </View>
-                          <Text style={styles.answerContent}>{ans.answer_text}</Text>
-                          {!!ans.partner_guess && (
-                            <Text style={styles.guessContent}>
-                              🔮 Pensait que l’autre répondrait : « {ans.partner_guess} »
+                          {isHiddenSecret ? (
+                            <Text style={{ color: COLORS.textSecondary, fontSize: 13.5, fontStyle: 'italic' }}>
+                              🔒 Réponse secrète cachée ! Réponds d’abord à cette question pour la révéler.
                             </Text>
+                          ) : (
+                            <>
+                              <Text style={styles.answerContent}>{ans.answer_text}</Text>
+                              {!!ans.partner_guess && (
+                                <Text style={styles.guessContent}>
+                                  🔮 Pensait que l’autre répondrait : « {ans.partner_guess} »
+                                </Text>
+                              )}
+                            </>
                           )}
                         </View>
                       );

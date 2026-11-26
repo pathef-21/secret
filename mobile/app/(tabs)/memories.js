@@ -12,10 +12,11 @@ import {
   Alert,
   FlatList,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import api from '../../src/services/api';
+import api, { appendImageToFormData, resolveMediaUrl } from '../../src/services/api';
 import { COLORS } from '../../src/theme/colors';
 
 const { width } = Dimensions.get('window');
@@ -35,6 +36,7 @@ export default function MemoriesScreen() {
   const [memoryDate, setMemoryDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedAsset, setSelectedAsset] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [modalError, setModalError] = useState('');
 
   // Detail Modal
   const [selectedMemory, setSelectedMemory] = useState(null);
@@ -60,54 +62,73 @@ export default function MemoriesScreen() {
   }, [fetchMemories]);
 
   const pickMedia = async () => {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!perm.granted) {
-      Alert.alert('Permission requise', 'Accès à la galerie nécessaire.');
-      return;
+    setModalError('');
+    if (Platform.OS !== 'web') {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert('Permission requise', 'Accès à la galerie nécessaire.');
+        return;
+      }
     }
 
-    const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.All,
-      allowsEditing: true,
-      quality: 0.85,
-    });
+    try {
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images', 'videos'],
+        allowsEditing: Platform.OS !== 'web',
+        quality: 0.85,
+      });
 
-    if (!res.canceled && res.assets[0]) {
-      setSelectedAsset(res.assets[0]);
+      if (!res.canceled && res.assets && res.assets[0]) {
+        setSelectedAsset(res.assets[0]);
+      }
+    } catch (e) {
+      setModalError('Impossible d’ouvrir la galerie.');
     }
   };
 
   const handleCreateMemory = async () => {
+    setModalError('');
     if (!title.trim() || !selectedAsset) {
-      Alert.alert('Champs requis', 'Veuillez sélectionner une photo ou vidéo et renseigner un titre.');
+      const msg = 'Veuillez sélectionner une photo ou vidéo et renseigner un titre.';
+      setModalError(msg);
+      if (Platform.OS !== 'web') Alert.alert('Champs requis', msg);
       return;
     }
 
     setSubmitting(true);
-    const formData = new FormData();
-    formData.append('title', title.trim());
-    formData.append('description', description.trim());
-    formData.append('location', location.trim());
-    formData.append('memory_date', memoryDate);
-    formData.append('media_type', selectedAsset.type === 'video' ? 'video' : 'image');
-    formData.append('media_file', {
-      uri: selectedAsset.uri,
-      name: selectedAsset.type === 'video' ? 'video.mp4' : 'image.jpg',
-      type: selectedAsset.type === 'video' ? 'video/mp4' : 'image/jpeg',
-    });
-
     try {
-      await api.post('/memories/items/', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const formData = new FormData();
+      formData.append('title', title.trim());
+      formData.append('description', description.trim());
+      formData.append('location', location.trim());
+      formData.append('memory_date', memoryDate);
+      const isVideo = selectedAsset.type === 'video' || (selectedAsset.mimeType || '').startsWith('video/');
+      formData.append('media_type', isVideo ? 'video' : 'image');
+      await appendImageToFormData(
+        formData,
+        'media_file',
+        selectedAsset,
+        isVideo ? 'video.mp4' : 'memory.jpg'
+      );
+
+      await api.post('/memories/items/', formData);
       setAddModalVisible(false);
       setTitle('');
       setDescription('');
       setLocation('');
       setSelectedAsset(null);
+      setModalError('');
       fetchMemories();
     } catch (e) {
-      Alert.alert('Erreur', 'Impossible d’enregistrer ce souvenir.');
+      const errData = e?.response?.data;
+      const msg =
+        (typeof errData === 'string' && errData) ||
+        errData?.detail ||
+        errData?.media_file?.[0] ||
+        errData?.memory_date?.[0] ||
+        'Impossible d’enregistrer ce souvenir.';
+      setModalError(msg);
+      if (Platform.OS !== 'web') Alert.alert('Erreur', msg);
     } finally {
       setSubmitting(false);
     }
@@ -164,7 +185,7 @@ export default function MemoriesScreen() {
             onPress={() => setSelectedMemory(item)}
             activeOpacity={0.85}
           >
-            <Image source={{ uri: item.media_file }} style={styles.cardImage} />
+            <Image source={{ uri: resolveMediaUrl(item.media_file) }} style={styles.cardImage} />
             <View style={styles.cardInfo}>
               <Text style={styles.cardTitle} numberOfLines={1}>
                 {item.title}
@@ -194,6 +215,11 @@ export default function MemoriesScreen() {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
+              {!!modalError && (
+                <View style={{ backgroundColor: 'rgba(239,68,68,0.16)', borderColor: '#ef4444', borderWidth: 1, borderRadius: 12, padding: 10, marginBottom: 14 }}>
+                  <Text style={{ color: '#fca5a5', fontSize: 13, textAlign: 'center' }}>{modalError}</Text>
+                </View>
+              )}
               <TouchableOpacity style={styles.pickerBox} onPress={pickMedia}>
                 {selectedAsset ? (
                   <Image source={{ uri: selectedAsset.uri }} style={styles.previewImage} />
@@ -272,7 +298,7 @@ export default function MemoriesScreen() {
             <ScrollView showsVerticalScrollIndicator={false}>
               {selectedMemory && (
                 <>
-                  <Image source={{ uri: selectedMemory.media_file }} style={styles.detailImage} />
+                  <Image source={{ uri: resolveMediaUrl(selectedMemory.media_file) }} style={styles.detailImage} />
                   <Text style={styles.detailDate}>
                     🗓️ {selectedMemory.memory_date} {selectedMemory.location ? `• 📍 ${selectedMemory.location}` : ''}
                   </Text>
