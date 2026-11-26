@@ -103,6 +103,22 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     }
                 )
 
+            elif action == 'call_signal':
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        'type': 'call_signal_event',
+                        'sender_id': self.user.id,
+                        'sender_name': (
+                            self.user.profile.nickname
+                            if hasattr(self.user, 'profile') and self.user.profile.nickname
+                            else (self.user.first_name or self.user.username)
+                        ),
+                        'signal_type': data.get('signal_type'),
+                        'payload': data.get('payload') or {},
+                    }
+                )
+
         except Exception as e:
             await self.send(text_data=json.dumps({'error': str(e)}))
 
@@ -134,6 +150,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
             await self.send(text_data=json.dumps({
                 'type': 'read_receipt',
                 'reader_id': event['reader_id']
+            }))
+
+    async def call_signal_event(self, event):
+        if event['sender_id'] != self.user.id:
+            await self.send(text_data=json.dumps({
+                'type': 'call_signal',
+                'sender_id': event['sender_id'],
+                'sender_name': event.get('sender_name', 'Mon Bae'),
+                'signal_type': event['signal_type'],
+                'payload': event.get('payload', {}),
             }))
 
     # Database helpers

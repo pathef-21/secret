@@ -93,6 +93,14 @@ class ChatWebSocketService {
     });
   }
 
+  sendCallSignal(signalType, payload = {}) {
+    return this.send({
+      action: 'call_signal',
+      signal_type: signalType,
+      payload,
+    });
+  }
+
   addListener(callback) {
     this.listeners.add(callback);
     return () => this.listeners.delete(callback);

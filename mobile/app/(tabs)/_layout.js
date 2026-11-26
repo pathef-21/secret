@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Platform } from 'react-native';
+import { Platform, View, Text } from 'react-native';
 import { Tabs, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../src/services/api';
@@ -35,10 +35,13 @@ export default function TabLayout() {
           // Fallback if backend hasn't redeployed /chat/unread-count/ yet
           const res = await api.get('/chat/messages/');
           const list = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+          const myId = String(user?.id || '');
           const unreadMsgs = list.filter((m) => {
-            if (m.sender?.id === user?.id) return false;
-            const myStatus = (m.statuses || []).find((s) => s.recipient?.id === user?.id);
-            return myStatus && myStatus.status !== 'read';
+            if (String(m.sender?.id || '') === myId) return false;
+            const statuses = m.statuses || [];
+            if (statuses.length === 0) return false;
+            const myStatus = statuses.find((s) => String(s.recipient?.id || '') === myId);
+            return myStatus ? myStatus.status !== 'read' : statuses.some((s) => s.status !== 'read');
           });
           count = unreadMsgs.length;
           if (unreadMsgs[0]) {
@@ -48,7 +51,7 @@ export default function TabLayout() {
                 unreadMsgs[0].sender?.profile?.nickname ||
                 unreadMsgs[0].sender?.first_name ||
                 'Mon Bae',
-              content: unreadMsgs[0].content || '📷 Photo partagée',
+              content: unreadMsgs[0].content || 'Nouveau message',
             };
           }
         }
@@ -57,12 +60,10 @@ export default function TabLayout() {
         const visibleCount = isOnChat ? 0 : count;
         setUnreadCount(visibleCount);
 
-        // Update browser tab title on Web
         if (Platform.OS === 'web' && typeof document !== 'undefined') {
           document.title = visibleCount > 0 ? `(${visibleCount}) Man Ak Bae ❤️` : 'Man Ak Bae ❤️';
         }
 
-        // Trigger notification when a brand new unread message arrives
         if (latest && latest.id) {
           if (initializedRef.current && latest.id !== lastNotifiedIdRef.current && !isOnChat) {
             showLocalNotification(`💌 ${latest.sender_name}`, latest.content);
@@ -76,7 +77,7 @@ export default function TabLayout() {
     };
 
     checkUnread();
-    const interval = setInterval(checkUnread, 4000);
+    const interval = setInterval(checkUnread, 3500);
     return () => clearInterval(interval);
   }, [user, couple, pathname]);
 
@@ -113,15 +114,32 @@ export default function TabLayout() {
         name="chat"
         options={{
           title: 'Chat',
-          tabBarBadge: unreadCount > 0 ? (unreadCount > 99 ? '99+' : unreadCount) : undefined,
-          tabBarBadgeStyle: {
-            backgroundColor: '#FF3B6B',
-            color: '#FFFFFF',
-            fontSize: 11,
-            fontWeight: '800',
-          },
           tabBarIcon: ({ color, size, focused }) => (
-            <Ionicons name={focused ? 'chatbubbles' : 'chatbubbles-outline'} size={size} color={color} />
+            <View style={{ position: 'relative' }}>
+              <Ionicons name={focused ? 'chatbubbles' : 'chatbubbles-outline'} size={size} color={color} />
+              {unreadCount > 0 && (
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: -6,
+                    right: -10,
+                    minWidth: 19,
+                    height: 19,
+                    borderRadius: 10,
+                    backgroundColor: '#FF3B6B',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    paddingHorizontal: 4,
+                    borderWidth: 1.5,
+                    borderColor: COLORS.surface,
+                  }}
+                >
+                  <Text style={{ color: '#FFFFFF', fontSize: 10, fontWeight: '800' }}>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </Text>
+                </View>
+              )}
+            </View>
           ),
         }}
       />
