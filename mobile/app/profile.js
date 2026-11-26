@@ -15,6 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import api, { appendImageToFormData, resolveMediaUrl } from '../src/services/api';
+import { requestNotificationPermission } from '../src/services/notifications';
 import { useAuth } from '../src/context/AuthContext';
 import { COLORS } from '../src/theme/colors';
 
@@ -251,6 +252,20 @@ export default function ProfileScreen() {
             thumbColor={COLORS.offWhite}
           />
         </View>
+
+        <TouchableOpacity
+          style={[styles.saveBtn, { marginTop: 12 }]}
+          onPress={async () => {
+            const res = await requestNotificationPermission();
+            if (res.granted) {
+              showFeedback('success', 'Notifications activées', 'Notifications activées sur ce téléphone ! 🔔');
+            } else {
+              showFeedback('error', 'Notifications', res.reason || 'Impossible d’activer les notifications.');
+            }
+          }}
+        >
+          <Text style={styles.saveBtnText}>🔔 Activer les notifications sur ce téléphone</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Actions (Logout & Delete) */}

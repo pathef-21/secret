@@ -8,6 +8,7 @@ from .models import Conversation, Message, MessageAttachment, MessageReaction, M
 from .serializers import MessageSerializer, CreateMessageSerializer, MessageReactionSerializer
 from apps.couples.permissions import IsCoupleMember
 from apps.flames.models import Flame
+from apps.notifications_app.services import send_push_notification
 
 class ConversationMessagesView(generics.ListAPIView):
     serializer_class = MessageSerializer
@@ -69,7 +70,7 @@ class SendMessageView(APIView):
         flame, _ = Flame.objects.get_or_create(couple=couple)
         flame_increased, current_streak = flame.record_activity(user)
 
-        # Record ReadStatus for partner
+        # Record ReadStatus for partner + send push notification
         partner = couple.get_partner_of(user)
         if partner:
             MessageReadStatus.objects.create(
@@ -77,6 +78,22 @@ class SendMessageView(APIView):
                 recipient=partner,
                 status='sent'
             )
+            sender_name = (
+                user.profile.nickname
+                if hasattr(user, 'profile') and user.profile.nickname
+                else (user.first_name or user.username)
+            )
+            preview = message.content[:100] if message.content else '📷 Nouveau média partagé'
+            try:
+                send_push_notification(
+                    user=partner,
+                    title=f"💌 {sender_name}",
+                    body=preview,
+                    data={'type': 'message', 'message_id': str(message.id)},
+                    notification_type='message',
+                )
+            except Exception:
+                pass
 
         response_data = MessageSerializer(message, context={'request': request}).data
         response_data['flame_info'] = {
@@ -122,6 +139,51 @@ class MarkMessagesAsReadView(APIView):
         ).update(status='read', status_updated_at=timezone.now())
 
         return Response({'marked_read': updated_count}, status=status.HTTP_200_OK)
+
+
+class UnreadCountView(APIView):
+    permission_classes = (permissions.IsAuthenticated, IsCoupleMember)
+
+    def get(self, request):
+        user = request.user
+        couple = user.couple_membership.couple
+        conversation, _ = Conversation.objects.get_or_create(couple=couple)
+        unread_count = MessageReadStatus.objects.filter(
+            message__conversation=conversation,
+            message__deleted_for_all=False,
+            recipient=user,
+            status__in=['sent', 'delivered']
+        ).count()
+        latest_unread = (
+            MessageReadStatus.objects.filter(
+                message__conversation=conversation,
+                message__deleted_for_all=False,
+                recipient=user,
+                status__in=['sent', 'delivered']
+            )
+            .select_related('message', 'message__sender', 'message__sender__profile')
+            .order_by('-message__created_at')
+            .first()
+        )
+        latest_preview = None
+        if latest_unread:
+            m = latest_unread.message
+            s = m.sender
+            sender_name = (
+                s.profile.nickname
+                if hasattr(s, 'profile') and s.profile.nickname
+                else (s.first_name or s.username)
+            )
+            latest_preview = {
+                'id': str(m.id),
+                'sender_name': sender_name,
+                'content': m.content[:100] if m.content else '📷 Photo partagée',
+                'created_at': m.created_at.isoformat(),
+            }
+        return Response({
+            'unread_count': unread_count,
+            'latest_unread': latest_preview,
+        }, status=status.HTTP_200_OK)
 
 class DeleteMessageView(APIView):
     permission_classes = (permissions.IsAuthenticated, IsCoupleMember)

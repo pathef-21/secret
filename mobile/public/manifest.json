@@ -1,0 +1,16 @@
+{
+  "name": "Man Ak Bae ❤️",
+  "short_name": "Man Ak Bae",
+  "description": "Votre sanctuaire d'amour privé et sécurisé",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#17151C",
+  "theme_color": "#17151C",
+  "icons": [
+    {
+      "src": "/dashboard-admin/logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

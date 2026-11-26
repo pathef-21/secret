@@ -4,6 +4,7 @@ from .views import (
     SendMessageView,
     ReactToMessageView,
     MarkMessagesAsReadView,
+    UnreadCountView,
     DeleteMessageView
 )
 
@@ -12,6 +13,7 @@ urlpatterns = [
     path('send/', SendMessageView.as_view(), name='send_message'),
     path('messages/<uuid:message_id>/react/', ReactToMessageView.as_view(), name='react_message'),
     path('messages/read/', MarkMessagesAsReadView.as_view(), name='read_messages'),
+    path('unread-count/', UnreadCountView.as_view(), name='unread_messages_count'),
     path('messages/<uuid:message_id>/', DeleteMessageView.as_view(), name='delete_message'),
 ]
 

@@ -6,7 +6,7 @@ from django.utils import timezone
 from .models import Couple
 from apps.couples.permissions import IsCoupleMember
 from apps.accounts.serializers import UserSerializer
-from apps.messaging.models import Conversation, Message
+from apps.messaging.models import Conversation, Message, MessageReadStatus
 from apps.messaging.serializers import MessageSerializer
 from apps.calendar_app.models import CalendarEvent
 from apps.calendar_app.serializers import CalendarEventSerializer
@@ -53,10 +53,16 @@ class HomeDashboardView(APIView):
                 'is_lit_today': flame.last_streak_date == timezone.now().date()
             }
 
-        # 3. Derniers messages
+        # 3. Derniers messages & compteur non lus
         conversation, _ = Conversation.objects.get_or_create(couple=couple)
         recent_messages = Message.objects.filter(conversation=conversation, deleted_for_all=False).select_related('sender', 'sender__profile').order_by('-created_at')[:3]
         recent_messages_data = MessageSerializer(recent_messages, many=True, context={'request': request}).data
+        unread_messages_count = MessageReadStatus.objects.filter(
+            message__conversation=conversation,
+            message__deleted_for_all=False,
+            recipient=user,
+            status__in=['sent', 'delivered']
+        ).count()
 
         # 4. Prochain rendez-vous
         now = timezone.now()
@@ -95,6 +101,7 @@ class HomeDashboardView(APIView):
             'partner': UserSerializer(partner).data if partner else None,
             'flame': flame_info,
             'recent_messages': recent_messages_data,
+            'unread_messages_count': unread_messages_count,
             'next_event': next_event_data,
             'recent_memories': recent_memories_data,
             'unread_letters_count': unread_letters_count,

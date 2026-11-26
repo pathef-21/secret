@@ -82,6 +82,7 @@ export default function HomeScreen() {
   const flame = dashboard?.flame;
   const nextEvent = dashboard?.next_event;
   const relationshipDays = dashboard?.couple?.relationship_days ?? 0;
+  const unreadMessagesCount = dashboard?.unread_messages_count ?? 0;
 
   return (
     <ScrollView
@@ -99,6 +100,36 @@ export default function HomeScreen() {
           <Ionicons name="settings-outline" size={22} color={COLORS.primaryRose} />
         </TouchableOpacity>
       </View>
+
+      {/* Unread Messages Alert Banner */}
+      {unreadMessagesCount > 0 && (
+        <TouchableOpacity
+          onPress={() => router.push('/(tabs)/chat')}
+          activeOpacity={0.85}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            backgroundColor: 'rgba(255, 59, 107, 0.16)',
+            borderColor: '#FF3B6B',
+            borderWidth: 1,
+            borderRadius: 18,
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+            marginBottom: 16,
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+            <Text style={{ fontSize: 20 }}>💌</Text>
+            <Text style={{ color: '#FFF9F7', fontSize: 13.5, fontWeight: '700' }}>
+              {unreadMessagesCount === 1
+                ? 'Tu as 1 nouveau message non lu !'
+                : `Tu as ${unreadMessagesCount} nouveaux messages non lus !`}
+            </Text>
+          </View>
+          <Text style={{ color: '#FF3B6B', fontWeight: '800', fontSize: 13 }}>Lire →</Text>
+        </TouchableOpacity>
+      )}
 
       {/* Invite Partner Card when partner hasn't joined yet */}
       {!partner && (

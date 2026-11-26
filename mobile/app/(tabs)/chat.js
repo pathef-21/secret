@@ -33,12 +33,21 @@ export default function ChatScreen() {
 
   const partner = couple?.memberships?.find((m) => m.user.id !== user?.id)?.user;
 
-  // 1. Fetch message history (also used for reliable 3s live sync)
+  // 1. Fetch message history (also used for reliable 3s live sync) & mark incoming as read
+  const markAsRead = useCallback(async () => {
+    try {
+      await api.post('/chat/messages/read/');
+    } catch {
+      // Ignore silent read receipt errors
+    }
+  }, []);
+
   const fetchMessages = useCallback(async () => {
     try {
       const res = await api.get('/chat/messages/');
       const list = Array.isArray(res.data) ? res.data : (res.data?.results || []);
       setMessages(list);
+      markAsRead();
     } catch (e) {
       const errDetail = e?.response?.data?.detail;
       if (errDetail) setChatError(errDetail);
@@ -46,7 +55,7 @@ export default function ChatScreen() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [markAsRead]);
 
   useEffect(() => {
     fetchMessages();
