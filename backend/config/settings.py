@@ -181,9 +181,13 @@ MEDIA_ROOT = BASE_DIR / 'media'
 DATA_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024  # 50MB
 FILE_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024
 
-# S3 Storage Configuration if enabled (compatible Cloudflare R2 & AWS S3)
+# Permanent Media Storage: Cloudinary (recommended, no credit card) OR S3 / Cloudflare R2
+CLOUDINARY_URL = os.getenv('CLOUDINARY_URL', '').strip()
 USE_S3_STORAGE = os.getenv('USE_S3_STORAGE', 'False').lower() in ('true', '1')
-if USE_S3_STORAGE:
+
+if CLOUDINARY_URL.startswith('cloudinary://'):
+    STORAGES['default']['BACKEND'] = 'config.cloudinary_storage.CloudinaryAutoStorage'
+elif USE_S3_STORAGE:
     AWS_ACCESS_KEY_ID = os.getenv('AWS_ACCESS_KEY_ID')
     AWS_SECRET_ACCESS_KEY = os.getenv('AWS_SECRET_ACCESS_KEY')
     AWS_STORAGE_BUCKET_NAME = os.getenv('AWS_STORAGE_BUCKET_NAME')
