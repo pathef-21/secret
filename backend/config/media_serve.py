@@ -112,10 +112,16 @@ def serve_media_with_range(request, path):
         resp['Access-Control-Allow-Origin'] = '*'
         return resp
 
-    # 2. Permanent PostgreSQL fallback for chat media, memories, and daily instants
+    # 2. Permanent PostgreSQL fallback for avatars, chat media, memories, and daily instants
+    from apps.accounts.models import UserProfile
     from apps.messaging.models import MessageAttachment
     from apps.memories.models import Memory
     from apps.flames.models import DailyInstant
+
+    prof = UserProfile.objects.filter(avatar=normalized).exclude(avatar_data__isnull=True).first()
+    if prof and prof.avatar_data:
+        content_type = prof.avatar_mime_type or _guess_mime(normalized, 'image/jpeg')
+        return _build_range_response(request, bytes(prof.avatar_data), content_type)
 
     att = MessageAttachment.objects.filter(file=normalized).exclude(file_data__isnull=True).first()
     if att and att.file_data:

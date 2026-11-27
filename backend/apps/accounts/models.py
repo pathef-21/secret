@@ -16,6 +16,8 @@ class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
     nickname = models.CharField(max_length=50, blank=True, null=True)
     avatar = models.ImageField(upload_to='avatars/', blank=True, null=True)
+    avatar_data = models.BinaryField(null=True, blank=True, help_text="Sauvegarde binaire permanente de l'avatar")
+    avatar_mime_type = models.CharField(max_length=80, blank=True, default='')
     bio = models.TextField(max_length=300, blank=True, null=True)
     birth_date = models.DateField(blank=True, null=True)
     relationship_status = models.CharField(

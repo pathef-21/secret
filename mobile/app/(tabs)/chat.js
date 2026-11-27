@@ -35,7 +35,7 @@ function formatDuration(sec) {
 }
 
 export default function ChatScreen() {
-  const { user, couple } = useAuth();
+  const { user, couple, refreshCouple } = useAuth();
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(true);
@@ -388,6 +388,7 @@ export default function ChatScreen() {
 
   useEffect(() => {
     fetchMessages();
+    refreshCouple();
     chatWS.connect();
     chatWS.sendReadReceipt();
 

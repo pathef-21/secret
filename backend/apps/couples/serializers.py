@@ -29,7 +29,7 @@ class CoupleSerializer(serializers.ModelSerializer):
         if not request or not request.user:
             return None
         partner = obj.get_partner_of(request.user)
-        return UserSerializer(partner).data if partner else None
+        return UserSerializer(partner, context={'request': request}).data if partner else None
 
     def get_relationship_days(self, obj):
         if not obj.relationship_start_date:

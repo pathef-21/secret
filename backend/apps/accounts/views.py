@@ -78,6 +78,18 @@ class UpdateProfileView(generics.UpdateAPIView):
     def get_object(self):
         return self.request.user.profile
 
+    def perform_update(self, serializer):
+        avatar_file = self.request.FILES.get('avatar')
+        extra = {}
+        if avatar_file and (avatar_file.size or 0) <= 8 * 1024 * 1024:
+            extra['avatar_mime_type'] = (getattr(avatar_file, 'content_type', '') or '')[:80]
+            try:
+                extra['avatar_data'] = avatar_file.read()
+                avatar_file.seek(0)
+            except Exception:
+                pass
+        serializer.save(**extra)
+
 class ChangePasswordView(APIView):
     permission_classes = (permissions.IsAuthenticated,)
 
