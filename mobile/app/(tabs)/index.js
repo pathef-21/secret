@@ -9,22 +9,114 @@ import {
   RefreshControl,
   ActivityIndicator,
   Platform,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import api, { resolveMediaUrl } from '../../src/services/api';
+import * as ImagePicker from 'expo-image-picker';
+import { Video, ResizeMode } from 'expo-av';
+import api, { appendImageToFormData, resolveMediaUrl } from '../../src/services/api';
 import { useAuth } from '../../src/context/AuthContext';
 import { COLORS } from '../../src/theme/colors';
 
 export default function HomeScreen() {
   const { user } = useAuth();
   const [dashboard, setDashboard] = useState(null);
+  const [instants, setInstants] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [inviteCode, setInviteCode] = useState('');
   const [loadingInvite, setLoadingInvite] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
+
+  // Instant creation modal
+  const [createInstantVisible, setCreateInstantVisible] = useState(false);
+  const [instantAsset, setInstantAsset] = useState(null);
+  const [instantCaption, setInstantCaption] = useState('');
+  const [sendingInstant, setSendingInstant] = useState(false);
+  const [instantError, setInstantError] = useState('');
+
+  // One-time Instant viewer modal
+  const [viewingInstant, setViewingInstant] = useState(null);
+  const [openingInstant, setOpeningInstant] = useState(false);
+
   const router = useRouter();
+
+  const fetchInstants = useCallback(async () => {
+    try {
+      const res = await api.get('/flames/instants/');
+      setInstants(res.data);
+    } catch {
+      // Ignore if backend hasn't deployed /flames/instants/ yet
+    }
+  }, []);
+
+  const handlePickInstantMedia = async () => {
+    setInstantError('');
+    try {
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images', 'videos'],
+        allowsEditing: Platform.OS !== 'web',
+        quality: 0.85,
+      });
+      if (!res.canceled && res.assets && res.assets[0]) {
+        setInstantAsset(res.assets[0]);
+      }
+    } catch {
+      setInstantError('Impossible d’ouvrir la galerie.');
+    }
+  };
+
+  const handleSendInstant = async () => {
+    setInstantError('');
+    if (!instantAsset) {
+      setInstantError('Choisis d’abord une photo ou une vidéo.');
+      return;
+    }
+    setSendingInstant(true);
+    try {
+      const formData = new FormData();
+      const isVideo =
+        instantAsset.type === 'video' || (instantAsset.mimeType || '').startsWith('video/');
+      formData.append('media_type', isVideo ? 'video' : 'image');
+      formData.append('caption', instantCaption.trim());
+      await appendImageToFormData(
+        formData,
+        'media_file',
+        instantAsset,
+        isVideo ? 'instant.mp4' : 'instant.jpg'
+      );
+
+      await api.post('/flames/instants/', formData);
+      setCreateInstantVisible(false);
+      setInstantAsset(null);
+      setInstantCaption('');
+      await Promise.all([fetchInstants(), fetchDashboardData()]);
+    } catch (e) {
+      setInstantError(e?.response?.data?.detail || 'Impossible d’envoyer cet Instant.');
+    } finally {
+      setSendingInstant(false);
+    }
+  };
+
+  const handleOpenPartnerInstant = async () => {
+    const pInst = instants?.partner_instant;
+    if (!pInst || !pInst.can_view || openingInstant) return;
+    setOpeningInstant(true);
+    try {
+      const res = await api.post(`/flames/instants/${pInst.id}/view/`);
+      setViewingInstant({
+        ...res.data,
+        media_url: resolveMediaUrl(res.data.media_url),
+      });
+      fetchInstants();
+    } catch {
+      fetchInstants();
+    } finally {
+      setOpeningInstant(false);
+    }
+  };
 
   const handleGetInviteCode = async () => {
     setLoadingInvite(true);
@@ -63,11 +155,15 @@ export default function HomeScreen() {
 
   useEffect(() => {
     fetchDashboardData();
-  }, [fetchDashboardData]);
+    fetchInstants();
+    const timer = setInterval(fetchInstants, 8000);
+    return () => clearInterval(timer);
+  }, [fetchDashboardData, fetchInstants]);
 
   const onRefresh = () => {
     setRefreshing(true);
     fetchDashboardData();
+    fetchInstants();
   };
 
   if (loading) {
@@ -174,6 +270,182 @@ export default function HomeScreen() {
         </View>
       )}
 
+      {/* Instagram-style Daily Instants (Vue unique 1x — critère Flamme) */}
+      <View
+        style={{
+          backgroundColor: COLORS.surface,
+          borderRadius: 22,
+          padding: 16,
+          marginBottom: 18,
+          borderWidth: 1,
+          borderColor: COLORS.surfaceBorder,
+        }}
+      >
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <View>
+            <Text style={{ color: COLORS.textPrimary, fontSize: 15.5, fontWeight: '800' }}>
+              🔥 Instants du Jour
+            </Text>
+            <Text style={{ color: COLORS.textMuted, fontSize: 11.5, marginTop: 2 }}>
+              1 photo ou vidéo / jour chacun • Vue unique (1×) pour garder la flamme
+            </Text>
+          </View>
+        </View>
+
+        <View style={{ flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' }}>
+          {/* Mon Instant */}
+          <TouchableOpacity
+            style={{ alignItems: 'center', width: 120 }}
+            onPress={() => {
+              setInstantError('');
+              setCreateInstantVisible(true);
+            }}
+            activeOpacity={0.8}
+          >
+            <View
+              style={{
+                width: 76,
+                height: 76,
+                borderRadius: 38,
+                padding: 3,
+                borderWidth: 2.5,
+                borderColor: instants?.my_sent_today ? '#4ADE80' : COLORS.primaryRose,
+                borderStyle: instants?.my_sent_today ? 'solid' : 'dashed',
+                justifyContent: 'center',
+                alignItems: 'center',
+                position: 'relative',
+              }}
+            >
+              {user?.profile?.avatar ? (
+                <Image
+                  source={{ uri: resolveMediaUrl(user.profile.avatar) }}
+                  style={{ width: 64, height: 64, borderRadius: 32 }}
+                />
+              ) : (
+                <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: COLORS.surfaceElevated, justifyContent: 'center', alignItems: 'center' }}>
+                  <Text style={{ color: COLORS.primaryRose, fontSize: 24, fontWeight: '800' }}>
+                    {user?.first_name?.[0] || user?.username?.[0] || 'M'}
+                  </Text>
+                </View>
+              )}
+              <View
+                style={{
+                  position: 'absolute',
+                  bottom: 0,
+                  right: 0,
+                  width: 24,
+                  height: 24,
+                  borderRadius: 12,
+                  backgroundColor: instants?.my_sent_today ? '#4ADE80' : COLORS.primaryRose,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  borderWidth: 2,
+                  borderColor: COLORS.surface,
+                }}
+              >
+                <Ionicons
+                  name={instants?.my_sent_today ? 'checkmark' : 'add'}
+                  size={14}
+                  color={COLORS.deepBlack}
+                />
+              </View>
+            </View>
+            <Text style={{ color: COLORS.textPrimary, fontSize: 12.5, fontWeight: '700', marginTop: 8 }}>
+              Mon Instant
+            </Text>
+            <Text style={{ color: instants?.my_sent_today ? '#4ADE80' : COLORS.primaryRose, fontSize: 11, marginTop: 2 }}>
+              {instants?.my_sent_today
+                ? instants?.my_instant?.viewed_by_partner
+                  ? 'Vu par Bae 👁️'
+                  : 'Envoyé 🔥'
+                : 'Ajouter 📸'}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Instant du partenaire */}
+          <TouchableOpacity
+            style={{ alignItems: 'center', width: 120 }}
+            onPress={handleOpenPartnerInstant}
+            disabled={!instants?.partner_instant?.can_view || openingInstant}
+            activeOpacity={0.8}
+          >
+            <View
+              style={{
+                width: 76,
+                height: 76,
+                borderRadius: 38,
+                padding: 3,
+                borderWidth: 3,
+                borderColor: instants?.partner_instant?.can_view
+                  ? '#FF3B6B'
+                  : instants?.partner_sent_today
+                  ? COLORS.textMuted
+                  : COLORS.surfaceBorder,
+                borderStyle: instants?.partner_sent_today ? 'solid' : 'dashed',
+                justifyContent: 'center',
+                alignItems: 'center',
+                position: 'relative',
+              }}
+            >
+              {partner?.profile?.avatar ? (
+                <Image
+                  source={{ uri: resolveMediaUrl(partner.profile.avatar) }}
+                  style={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: 32,
+                    opacity: instants?.partner_instant?.can_view ? 1 : 0.55,
+                  }}
+                />
+              ) : (
+                <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: COLORS.surfaceElevated, justifyContent: 'center', alignItems: 'center' }}>
+                  <Text style={{ color: COLORS.primaryRose, fontSize: 24, fontWeight: '800' }}>
+                    {partner?.first_name?.[0] || 'B'}
+                  </Text>
+                </View>
+              )}
+
+              {instants?.partner_instant?.can_view && (
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: -2,
+                    right: -2,
+                    backgroundColor: '#FF3B6B',
+                    borderRadius: 10,
+                    paddingHorizontal: 6,
+                    paddingVertical: 2,
+                    borderWidth: 2,
+                    borderColor: COLORS.surface,
+                  }}
+                >
+                  <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>1× 🔥</Text>
+                </View>
+              )}
+            </View>
+            <Text style={{ color: COLORS.textPrimary, fontSize: 12.5, fontWeight: '700', marginTop: 8 }} numberOfLines={1}>
+              {partner?.profile?.nickname || partner?.first_name || 'Mon Bae'}
+            </Text>
+            <Text
+              style={{
+                color: instants?.partner_instant?.can_view ? '#FF3B6B' : COLORS.textMuted,
+                fontSize: 11,
+                fontWeight: instants?.partner_instant?.can_view ? '700' : '400',
+                marginTop: 2,
+              }}
+            >
+              {openingInstant
+                ? 'Ouverture...'
+                : instants?.partner_instant?.can_view
+                ? 'Appuyer pour voir !'
+                : instants?.partner_sent_today
+                ? 'Déjà vu 👁️'
+                : 'En attente...'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
       {/* Love Match Header (Les deux amoureux) */}
       <View style={styles.loveMatchCard}>
         <View style={styles.partnerColumn}>
@@ -227,8 +499,8 @@ export default function HomeScreen() {
             </View>
             <Text style={styles.flameStatusText}>
               {flame?.is_lit_today
-                ? '✨ Flamme du jour validée par les deux amoureux !'
-                : 'Envoyez un message aujourd’hui pour entretenir votre flamme !'}
+                ? '✨ Flamme du jour validée par vos deux Instants !'
+                : `Critère du jour : ${instants?.my_sent_today ? '✅ Ton Instant' : '⏳ Ton Instant'} • ${instants?.partner_sent_today ? '✅ Instant de Bae' : '⏳ Instant de Bae'}`}
             </Text>
           </View>
         </View>
@@ -306,6 +578,169 @@ export default function HomeScreen() {
         <Ionicons name="chatbubble-ellipses" size={20} color={COLORS.deepBlack} style={{ marginRight: 8 }} />
         <Text style={styles.openChatButtonText}>Parler à mon Bae ❤️</Text>
       </TouchableOpacity>
+      {/* Modal 1: Send Daily Instant (Photo or Video) */}
+      <Modal visible={createInstantVisible} animationType="slide" transparent>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.82)', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: COLORS.surface, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, borderWidth: 1, borderColor: COLORS.surfaceBorder }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+              <Text style={{ color: COLORS.primaryRose, fontSize: 19, fontWeight: '800' }}>
+                🔥 Mon Instant du Jour
+              </Text>
+              <TouchableOpacity onPress={() => setCreateInstantVisible(false)}>
+                <Ionicons name="close" size={24} color={COLORS.textPrimary} />
+              </TouchableOpacity>
+            </View>
+            <Text style={{ color: COLORS.textSecondary, fontSize: 13, marginBottom: 16 }}>
+              Envoie une photo ou une vidéo que ton/ta partenaire ne pourra voir qu’une seule fois (indispensable pour garder la flamme !).
+            </Text>
+
+            {!!instantError && (
+              <View style={{ backgroundColor: 'rgba(239,68,68,0.16)', borderRadius: 12, padding: 10, marginBottom: 12 }}>
+                <Text style={{ color: '#fca5a5', fontSize: 13, textAlign: 'center' }}>{instantError}</Text>
+              </View>
+            )}
+
+            <TouchableOpacity
+              onPress={handlePickInstantMedia}
+              style={{
+                height: 170,
+                borderRadius: 18,
+                backgroundColor: COLORS.surfaceElevated,
+                borderWidth: 1.5,
+                borderStyle: 'dashed',
+                borderColor: COLORS.primaryRose,
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginBottom: 14,
+                overflow: 'hidden',
+              }}
+            >
+              {instantAsset ? (
+                instantAsset.type === 'video' || (instantAsset.mimeType || '').startsWith('video/') ? (
+                  <View style={{ alignItems: 'center' }}>
+                    <Ionicons name="videocam" size={40} color={COLORS.primaryRose} />
+                    <Text style={{ color: COLORS.textPrimary, fontWeight: '700', marginTop: 8 }}>
+                      Vidéo sélectionnée ✅
+                    </Text>
+                  </View>
+                ) : (
+                  <Image source={{ uri: instantAsset.uri }} style={{ width: '100%', height: '100%' }} />
+                )
+              ) : (
+                <View style={{ alignItems: 'center' }}>
+                  <Ionicons name="camera-outline" size={38} color={COLORS.primaryRose} />
+                  <Text style={{ color: COLORS.textSecondary, fontSize: 14, marginTop: 8 }}>
+                    Choisir une photo ou vidéo 📸🎥
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+
+            <TextInput
+              style={{
+                backgroundColor: COLORS.surfaceElevated,
+                borderRadius: 14,
+                paddingHorizontal: 14,
+                paddingVertical: 12,
+                color: COLORS.textPrimary,
+                marginBottom: 16,
+                borderWidth: 1,
+                borderColor: COLORS.surfaceBorder,
+              }}
+              placeholder="Ajouter un petit mot (optionnel)..."
+              placeholderTextColor={COLORS.textMuted}
+              value={instantCaption}
+              onChangeText={setInstantCaption}
+              maxLength={160}
+            />
+
+            <TouchableOpacity
+              style={{
+                backgroundColor: COLORS.primaryRose,
+                borderRadius: 14,
+                height: 50,
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+              onPress={handleSendInstant}
+              disabled={sendingInstant}
+            >
+              {sendingInstant ? (
+                <ActivityIndicator color={COLORS.deepBlack} />
+              ) : (
+                <Text style={{ color: COLORS.deepBlack, fontSize: 15, fontWeight: '800' }}>
+                  🔥 Envoyer mon Instant (vue unique)
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal 2: Full-Screen One-Time Instant Viewer */}
+      <Modal visible={!!viewingInstant} animationType="fade" transparent={false}>
+        <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'space-between', paddingTop: 48, paddingBottom: 34, paddingHorizontal: 18 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <View>
+              <Text style={{ color: '#fff', fontSize: 16, fontWeight: '800' }}>
+                🔥 Instant de {viewingInstant?.sender_name}
+              </Text>
+              <Text style={{ color: '#FF3B6B', fontSize: 12, fontWeight: '700', marginTop: 2 }}>
+                Vue unique (1×) — disparaîtra à la fermeture
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => setViewingInstant(null)}
+              style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.16)', justifyContent: 'center', alignItems: 'center' }}
+            >
+              <Ionicons name="close" size={24} color="#fff" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', marginVertical: 16 }}>
+            {viewingInstant?.media_type === 'video' ? (
+              Platform.OS === 'web' ? (
+                <video
+                  src={viewingInstant.media_url}
+                  controls
+                  autoPlay
+                  playsInline
+                  style={{ width: '100%', maxHeight: '75vh', borderRadius: 16 }}
+                />
+              ) : (
+                <Video
+                  source={{ uri: viewingInstant.media_url }}
+                  style={{ width: '100%', height: 420, borderRadius: 16 }}
+                  useNativeControls
+                  shouldPlay
+                  resizeMode={ResizeMode.CONTAIN}
+                />
+              )
+            ) : viewingInstant?.media_url ? (
+              <Image
+                source={{ uri: viewingInstant.media_url }}
+                style={{ width: '100%', height: '100%', borderRadius: 16 }}
+                resizeMode="contain"
+              />
+            ) : null}
+          </View>
+
+          {!!viewingInstant?.caption && (
+            <View style={{ backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 14, padding: 14, marginBottom: 12 }}>
+              <Text style={{ color: '#fff', fontSize: 15, textAlign: 'center', fontWeight: '600' }}>
+                {viewingInstant.caption}
+              </Text>
+            </View>
+          )}
+
+          <TouchableOpacity
+            style={{ backgroundColor: COLORS.primaryRose, borderRadius: 14, height: 48, justifyContent: 'center', alignItems: 'center' }}
+            onPress={() => setViewingInstant(null)}
+          >
+            <Text style={{ color: COLORS.deepBlack, fontSize: 15, fontWeight: '800' }}>Fermer l’Instant</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
