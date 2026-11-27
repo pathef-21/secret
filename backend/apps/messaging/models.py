@@ -53,6 +53,8 @@ class MessageAttachment(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     message = models.ForeignKey(Message, on_delete=models.CASCADE, related_name='attachments')
     file = models.FileField(upload_to='chat_attachments/%Y/%m/%d/')
+    file_data = models.BinaryField(null=True, blank=True, help_text="Sauvegarde binaire permanente pour les vocaux")
+    mime_type = models.CharField(max_length=80, blank=True, default='')
     attachment_type = models.CharField(max_length=10, choices=ATTACHMENT_TYPES)
     file_size = models.PositiveIntegerField(help_text="Taille en octets", default=0)
     duration_seconds = models.PositiveIntegerField(null=True, blank=True, help_text="Durée en secondes pour l'audio/vidéo")

@@ -58,9 +58,21 @@ class SendMessageView(APIView):
         duration_int = int(duration) if duration and duration.isdigit() else None
 
         for file_obj in files:
+            raw_audio_bytes = None
+            mime_type = getattr(file_obj, 'content_type', '') or ''
+            # Keep voice notes permanently in PostgreSQL too (<= 5MB) so they never 404 after Render restarts
+            if attachment_type == 'audio' and (file_obj.size or 0) <= 5 * 1024 * 1024:
+                try:
+                    raw_audio_bytes = file_obj.read()
+                    file_obj.seek(0)
+                except Exception:
+                    raw_audio_bytes = None
+
             MessageAttachment.objects.create(
                 message=message,
                 file=file_obj,
+                file_data=raw_audio_bytes,
+                mime_type=mime_type[:80],
                 attachment_type=attachment_type,
                 file_size=file_obj.size,
                 duration_seconds=duration_int
