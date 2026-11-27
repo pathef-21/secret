@@ -17,6 +17,12 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Video, ResizeMode } from 'expo-av';
 import api, { appendImageToFormData, resolveMediaUrl } from '../../src/services/api';
+import {
+  AmbientFloatingParticles,
+  FadeSlideIn,
+  FloatingHeartsBurst,
+  PulseView,
+} from '../../src/components/RomanticAnimations';
 import { useAuth } from '../../src/context/AuthContext';
 import { COLORS } from '../../src/theme/colors';
 
@@ -40,6 +46,7 @@ export default function HomeScreen() {
   // One-time Instant viewer modal
   const [viewingInstant, setViewingInstant] = useState(null);
   const [openingInstant, setOpeningInstant] = useState(false);
+  const [burstKey, setBurstKey] = useState(0);
 
   const router = useRouter();
 
@@ -124,6 +131,7 @@ export default function HomeScreen() {
       setCreateInstantVisible(false);
       setInstantAsset(null);
       setInstantCaption('');
+      setBurstKey((k) => k + 1);
       await Promise.all([fetchInstants(), fetchDashboardData()]);
     } catch (e) {
       setInstantError(e?.response?.data?.detail || 'Impossible d’envoyer cet Instant.');
@@ -213,11 +221,13 @@ export default function HomeScreen() {
   const unreadMessagesCount = dashboard?.unread_messages_count ?? 0;
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.scrollContent}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primaryRose} />}
-    >
+    <View style={{ flex: 1, backgroundColor: COLORS.deepBlack }}>
+      <AmbientFloatingParticles />
+      <ScrollView
+        style={[styles.container, { backgroundColor: 'transparent' }]}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primaryRose} />}
+      >
       {/* Top Header */}
       <View style={styles.topBar}>
         <View>
@@ -303,6 +313,7 @@ export default function HomeScreen() {
       )}
 
       {/* Instagram-style Daily Instants (Vue unique 1x — critère Flamme) */}
+      <FadeSlideIn delay={60}>
       <View
         style={{
           backgroundColor: COLORS.surface,
@@ -401,6 +412,7 @@ export default function HomeScreen() {
             disabled={!instants?.partner_instant?.can_view || openingInstant}
             activeOpacity={0.8}
           >
+            <PulseView active={!!instants?.partner_instant?.can_view} mode="breath">
             <View
               style={{
                 width: 76,
@@ -455,6 +467,7 @@ export default function HomeScreen() {
                 </View>
               )}
             </View>
+            </PulseView>
             <Text style={{ color: COLORS.textPrimary, fontSize: 12.5, fontWeight: '700', marginTop: 8 }} numberOfLines={1}>
               {partner?.profile?.nickname || partner?.first_name || 'Mon Bae'}
             </Text>
@@ -477,8 +490,10 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
       </View>
+      </FadeSlideIn>
 
       {/* Love Match Header (Les deux amoureux) */}
+      <FadeSlideIn delay={150}>
       <View style={styles.loveMatchCard}>
         <View style={styles.partnerColumn}>
           <View style={styles.avatarWrapper}>
@@ -496,11 +511,13 @@ export default function HomeScreen() {
         </View>
 
         {/* Central Love Pulse */}
-        <View style={styles.lovePulse}>
-          <Text style={styles.heartPulse}>❤️</Text>
+        <TouchableOpacity style={styles.lovePulse} activeOpacity={0.8} onPress={() => setBurstKey((k) => k + 1)}>
+          <PulseView active mode="heartbeat">
+            <Text style={styles.heartPulse}>❤️</Text>
+          </PulseView>
           <Text style={styles.relationshipDaysText}>{relationshipDays} jours</Text>
           <Text style={styles.togetherLabel}>ensemble</Text>
-        </View>
+        </TouchableOpacity>
 
         <View style={styles.partnerColumn}>
           <View style={styles.avatarWrapper}>
@@ -517,13 +534,17 @@ export default function HomeScreen() {
           </Text>
         </View>
       </View>
+      </FadeSlideIn>
 
       {/* Flammes Streaks Section */}
+      <FadeSlideIn delay={240}>
       <View style={styles.flameCard}>
         <View style={styles.flameRow}>
-          <View style={styles.flameIconBox}>
-            <Text style={styles.flameEmoji}>🔥</Text>
-          </View>
+          <PulseView active mode="breath">
+            <View style={styles.flameIconBox}>
+              <Text style={styles.flameEmoji}>🔥</Text>
+            </View>
+          </PulseView>
           <View style={styles.flameInfo}>
             <View style={styles.streakNumbers}>
               <Text style={styles.streakCount}>{flame?.current_streak || 0}</Text>
@@ -537,6 +558,7 @@ export default function HomeScreen() {
           </View>
         </View>
       </View>
+      </FadeSlideIn>
 
       {/* Citation Romantique Inspirante */}
       {dashboard?.quote_of_the_day && (
@@ -821,7 +843,9 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </View>
       </Modal>
-    </ScrollView>
+      </ScrollView>
+      <FloatingHeartsBurst triggerKey={burstKey} />
+    </View>
   );
 }
 

@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Audio } from 'expo-av';
 import api, { appendImageToFormData, resolveMediaUrl } from '../../src/services/api';
+import { FloatingHeartsBurst, PulseView } from '../../src/components/RomanticAnimations';
 import chatWS from '../../src/services/websocket';
 import { useAuth } from '../../src/context/AuthContext';
 import { COLORS } from '../../src/theme/colors';
@@ -43,6 +44,7 @@ export default function ChatScreen() {
   const [chatError, setChatError] = useState('');
   const [partnerTyping, setPartnerTyping] = useState(false);
   const [partnerOnline, setPartnerOnline] = useState(false);
+  const [heartBurstKey, setHeartBurstKey] = useState(0);
 
   // Voice message recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -480,6 +482,7 @@ export default function ChatScreen() {
   };
 
   const sendHeartPulse = () => {
+    setHeartBurstKey((k) => k + 1);
     handleSendMessage('heart', '❤️ Un gros câlin et coup de cœur pour toi !');
   };
 
@@ -858,9 +861,11 @@ export default function ChatScreen() {
           <View style={{ flexDirection: 'row', gap: 10 }}>
             {callStatus === 'incoming' ? (
               <>
-                <TouchableOpacity style={styles.acceptCallBtn} onPress={acceptVoiceCall}>
-                  <Ionicons name="call" size={18} color="#fff" />
-                </TouchableOpacity>
+                <PulseView active mode="heartbeat">
+                  <TouchableOpacity style={styles.acceptCallBtn} onPress={acceptVoiceCall}>
+                    <Ionicons name="call" size={18} color="#fff" />
+                  </TouchableOpacity>
+                </PulseView>
                 <TouchableOpacity style={styles.hangupCallBtn} onPress={() => endVoiceCall(true)}>
                   <Ionicons name="call" size={18} color="#fff" style={{ transform: [{ rotate: '135deg' }] }} />
                 </TouchableOpacity>
@@ -944,7 +949,9 @@ export default function ChatScreen() {
             <Ionicons name="trash-outline" size={20} color="#F87171" />
           </TouchableOpacity>
           <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-            <View style={styles.recDot} />
+            <PulseView active mode="heartbeat">
+              <View style={styles.recDot} />
+            </PulseView>
             <Text style={{ color: COLORS.textPrimary, fontWeight: '700', fontSize: 15 }}>
               Enregistrement... {formatDuration(recordSeconds)}
             </Text>
@@ -991,6 +998,7 @@ export default function ChatScreen() {
           )}
         </View>
       )}
+      <FloatingHeartsBurst triggerKey={heartBurstKey} />
     </KeyboardAvoidingView>
   );
 }

@@ -15,6 +15,7 @@ import {
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../src/context/AuthContext';
+import { AmbientFloatingParticles, FadeSlideIn, PulseView } from '../../src/components/RomanticAnimations';
 import { COLORS } from '../../src/theme/colors';
 
 export default function LoginScreen() {
@@ -57,18 +58,24 @@ export default function LoginScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
+      <AmbientFloatingParticles />
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         {/* Header Romantique */}
+        <FadeSlideIn delay={40}>
         <View style={styles.header}>
-          <Image
-            source={require('../../assets/icon.png')}
-            style={{ width: 112, height: 112, borderRadius: 26, marginBottom: 12 }}
-            resizeMode="contain"
-          />
+          <PulseView active mode="breath">
+            <Image
+              source={require('../../assets/icon.png')}
+              style={{ width: 112, height: 112, borderRadius: 26, marginBottom: 12 }}
+              resizeMode="contain"
+            />
+          </PulseView>
           <Text style={styles.subtitle}>Votre sanctuaire d'amour privé et sécurisé</Text>
         </View>
+        </FadeSlideIn>
 
         {/* Formulaire */}
+        <FadeSlideIn delay={150}>
         <View style={styles.formCard}>
           <Text style={styles.formTitle}>Connexion</Text>
 
@@ -123,6 +130,7 @@ export default function LoginScreen() {
             )}
           </TouchableOpacity>
         </View>
+        </FadeSlideIn>
 
         {/* Footer */}
         <View style={styles.footer}>

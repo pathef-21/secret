@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../src/services/api';
+import { FadeSlideIn, FloatingHeartsBurst } from '../../src/components/RomanticAnimations';
 import { useAuth } from '../../src/context/AuthContext';
 import { COLORS } from '../../src/theme/colors';
 
@@ -30,6 +31,7 @@ export default function GamesScreen() {
   const [activeSession, setActiveSession] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState('');
+  const [celebrateKey, setCelebrateKey] = useState(0);
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -163,6 +165,7 @@ export default function GamesScreen() {
         partner_guess: partnerGuess.trim(),
       });
       await fetchSessions();
+      setCelebrateKey((k) => k + 1);
       setFeedbackMsg('✅ Réponse envoyée ! Ton/ta partenaire peut la voir dans « Nos Réponses » ❤️');
       setAnswerText('');
       setPartnerGuess('');
@@ -237,9 +240,9 @@ export default function GamesScreen() {
 
           {/* Grid of Games */}
           <View style={styles.grid}>
-            {gamesList.map((game) => (
+            {gamesList.map((game, idx) => (
+              <FadeSlideIn key={game.id} delay={Math.min(idx * 55, 360)}>
               <TouchableOpacity
-                key={game.id}
                 style={styles.gameCard}
                 onPress={() => openGameModal(game)}
                 activeOpacity={0.8}
@@ -256,6 +259,7 @@ export default function GamesScreen() {
                   <Ionicons name="arrow-forward" size={12} color={COLORS.deepBlack} />
                 </View>
               </TouchableOpacity>
+              </FadeSlideIn>
             ))}
           </View>
         </>
@@ -458,6 +462,7 @@ export default function GamesScreen() {
           </View>
         </View>
       </Modal>
+      <FloatingHeartsBurst triggerKey={celebrateKey} />
     </ScrollView>
   );
 }
