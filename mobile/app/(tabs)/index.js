@@ -52,19 +52,51 @@ export default function HomeScreen() {
     }
   }, []);
 
-  const handlePickInstantMedia = async () => {
+  const handleCaptureInstantMedia = async (mode = 'image') => {
     setInstantError('');
+    const isVideo = mode === 'video';
+
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      // Force live camera capture on mobile browsers (no gallery import)
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = isVideo ? 'video/*' : 'image/*';
+      input.setAttribute('capture', 'user');
+      input.onchange = (e) => {
+        const file = e.target?.files?.[0];
+        if (file) {
+          const previewUri = URL.createObjectURL(file);
+          setInstantAsset({
+            uri: previewUri,
+            file,
+            fileName: file.name || (isVideo ? 'instant.mp4' : 'instant.jpg'),
+            mimeType: file.type || (isVideo ? 'video/mp4' : 'image/jpeg'),
+            type: isVideo ? 'video' : 'image',
+          });
+        }
+      };
+      input.click();
+      return;
+    }
+
+    // Native iOS / Android: camera only (never gallery)
     try {
-      const res = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images', 'videos'],
-        allowsEditing: Platform.OS !== 'web',
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) {
+        setInstantError('Autorisez la caméra pour prendre un Instant en direct.');
+        return;
+      }
+      const res = await ImagePicker.launchCameraAsync({
+        mediaTypes: isVideo ? ['videos'] : ['images'],
+        allowsEditing: !isVideo,
+        videoMaxDuration: 30,
         quality: 0.85,
       });
       if (!res.canceled && res.assets && res.assets[0]) {
         setInstantAsset(res.assets[0]);
       }
     } catch {
-      setInstantError('Impossible d’ouvrir la galerie.');
+      setInstantError('Impossible d’ouvrir la caméra.');
     }
   };
 
@@ -591,7 +623,7 @@ export default function HomeScreen() {
               </TouchableOpacity>
             </View>
             <Text style={{ color: COLORS.textSecondary, fontSize: 13, marginBottom: 16 }}>
-              Envoie une photo ou une vidéo que ton/ta partenaire ne pourra voir qu’une seule fois (indispensable pour garder la flamme !).
+              Prends une photo ou filme une vidéo en direct (caméra uniquement, pas d’import) — vue unique (1×) pour garder votre flamme !
             </Text>
 
             {!!instantError && (
@@ -600,41 +632,89 @@ export default function HomeScreen() {
               </View>
             )}
 
-            <TouchableOpacity
-              onPress={handlePickInstantMedia}
-              style={{
-                height: 170,
-                borderRadius: 18,
-                backgroundColor: COLORS.surfaceElevated,
-                borderWidth: 1.5,
-                borderStyle: 'dashed',
-                borderColor: COLORS.primaryRose,
-                justifyContent: 'center',
-                alignItems: 'center',
-                marginBottom: 14,
-                overflow: 'hidden',
-              }}
-            >
-              {instantAsset ? (
-                instantAsset.type === 'video' || (instantAsset.mimeType || '').startsWith('video/') ? (
+            {instantAsset ? (
+              <View
+                style={{
+                  height: 170,
+                  borderRadius: 18,
+                  backgroundColor: COLORS.surfaceElevated,
+                  borderWidth: 1.5,
+                  borderColor: COLORS.primaryRose,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  marginBottom: 12,
+                  overflow: 'hidden',
+                  position: 'relative',
+                }}
+              >
+                {instantAsset.type === 'video' || (instantAsset.mimeType || '').startsWith('video/') ? (
                   <View style={{ alignItems: 'center' }}>
                     <Ionicons name="videocam" size={40} color={COLORS.primaryRose} />
                     <Text style={{ color: COLORS.textPrimary, fontWeight: '700', marginTop: 8 }}>
-                      Vidéo sélectionnée ✅
+                      Vidéo filmée en direct ✅
                     </Text>
                   </View>
                 ) : (
                   <Image source={{ uri: instantAsset.uri }} style={{ width: '100%', height: '100%' }} />
-                )
-              ) : (
-                <View style={{ alignItems: 'center' }}>
-                  <Ionicons name="camera-outline" size={38} color={COLORS.primaryRose} />
-                  <Text style={{ color: COLORS.textSecondary, fontSize: 14, marginTop: 8 }}>
-                    Choisir une photo ou vidéo 📸🎥
+                )}
+                <TouchableOpacity
+                  onPress={() => setInstantAsset(null)}
+                  style={{
+                    position: 'absolute',
+                    top: 10,
+                    right: 10,
+                    backgroundColor: 'rgba(0,0,0,0.65)',
+                    borderRadius: 14,
+                    paddingHorizontal: 10,
+                    paddingVertical: 5,
+                  }}
+                >
+                  <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>Reprendre</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={{ flexDirection: 'row', gap: 12, marginBottom: 14 }}>
+                <TouchableOpacity
+                  onPress={() => handleCaptureInstantMedia('image')}
+                  style={{
+                    flex: 1,
+                    height: 120,
+                    borderRadius: 18,
+                    backgroundColor: COLORS.surfaceElevated,
+                    borderWidth: 1.5,
+                    borderStyle: 'dashed',
+                    borderColor: COLORS.primaryRose,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  }}
+                >
+                  <Ionicons name="camera" size={34} color={COLORS.primaryRose} />
+                  <Text style={{ color: COLORS.textPrimary, fontSize: 13, fontWeight: '700', marginTop: 8 }}>
+                    Prendre une photo
                   </Text>
-                </View>
-              )}
-            </TouchableOpacity>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => handleCaptureInstantMedia('video')}
+                  style={{
+                    flex: 1,
+                    height: 120,
+                    borderRadius: 18,
+                    backgroundColor: COLORS.surfaceElevated,
+                    borderWidth: 1.5,
+                    borderStyle: 'dashed',
+                    borderColor: '#A78BFA',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  }}
+                >
+                  <Ionicons name="videocam" size={34} color="#A78BFA" />
+                  <Text style={{ color: COLORS.textPrimary, fontSize: 13, fontWeight: '700', marginTop: 8 }}>
+                    Filmer une vidéo
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
 
             <TextInput
               style={{
