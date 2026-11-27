@@ -31,11 +31,12 @@ class HomeDashboardView(APIView):
         couple = user.couple_membership.couple
         partner = couple.get_partner_of(user)
 
-        # 1. Calcul durée de relation
-        relationship_days = 0
-        if couple.relationship_start_date:
-            delta = timezone.now().date() - couple.relationship_start_date
-            relationship_days = max(0, delta.days)
+        # 1. Calcul durée de relation (utilise relationship_start_date ou date de création du couple)
+        from apps.flames.models import get_current_dakar_date
+        today_dakar = get_current_dakar_date()
+        start_ref = couple.relationship_start_date or couple.created_at.date()
+        delta_days = (today_dakar - start_ref).days
+        relationship_days = max(1, delta_days + 1) if delta_days >= 0 else 0
 
         # 2. Compteur de flammes
         flame_info = {

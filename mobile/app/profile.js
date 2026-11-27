@@ -11,6 +11,7 @@ import {
   Alert,
   Switch,
   Platform,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -20,13 +21,21 @@ import { useAuth } from '../src/context/AuthContext';
 import { COLORS } from '../src/theme/colors';
 
 export default function ProfileScreen() {
-  const { user, couple, logout, refreshUser } = useAuth();
+  const { user, couple, logout, refreshUser, refreshCouple } = useAuth();
   const [nickname, setNickname] = useState(user?.profile?.nickname || '');
   const [bio, setBio] = useState(user?.profile?.bio || '');
+  const [startDateInput, setStartDateInput] = useState(couple?.relationship_start_date || '');
+  const [savingDate, setSavingDate] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [localAvatarPreview, setLocalAvatarPreview] = useState(null);
   const [statusMsg, setStatusMsg] = useState({ type: '', text: '' });
+
+  // Interactive Avatar Crop & Framing Modal state
+  const [cropAsset, setCropAsset] = useState(null);
+  const [cropZoom, setCropZoom] = useState(1.0);
+  const [cropOffsetX, setCropOffsetX] = useState(0);
+  const [cropOffsetY, setCropOffsetY] = useState(0);
 
   // Notifications toggles
   const [msgNotifs, setMsgNotifs] = useState(true);
@@ -69,29 +78,106 @@ export default function ProfileScreen() {
         mediaTypes: ['images'],
         allowsEditing: Platform.OS !== 'web',
         aspect: [1, 1],
-        quality: 0.8,
+        quality: 0.9,
       });
 
       if (!res.canceled && res.assets && res.assets[0]) {
         const asset = res.assets[0];
-        setLocalAvatarPreview(asset.uri);
-        setUploadingAvatar(true);
-        try {
-          const formData = new FormData();
-          await appendImageToFormData(formData, 'avatar', asset, 'avatar.jpg');
-          await api.patch('/auth/profile/', formData);
-          await refreshUser();
-          showFeedback('success', 'Succès', 'Photo de profil mise à jour ! 📸');
-        } catch (e) {
-          console.warn('Avatar upload error:', e?.response?.data || e);
-          showFeedback('error', 'Erreur', 'Échec du changement de photo de profil.');
-        } finally {
-          setUploadingAvatar(false);
+        if (Platform.OS === 'web') {
+          // Open interactive circular crop & framing modal on Web
+          setCropZoom(1.0);
+          setCropOffsetX(0);
+          setCropOffsetY(0);
+          setCropAsset(asset);
+        } else {
+          await uploadAvatarAsset(asset);
         }
       }
     } catch (e) {
       console.warn('ImagePicker error:', e);
       showFeedback('error', 'Erreur', 'Impossible d’ouvrir la galerie photo.');
+    }
+  };
+
+  const uploadAvatarAsset = async (asset, customBlob = null, previewUri = null) => {
+    setLocalAvatarPreview(previewUri || asset.uri);
+    setUploadingAvatar(true);
+    try {
+      const formData = new FormData();
+      if (customBlob) {
+        formData.append('avatar', customBlob, 'avatar.jpg');
+      } else {
+        await appendImageToFormData(formData, 'avatar', asset, 'avatar.jpg');
+      }
+      await api.patch('/auth/profile/', formData);
+      await refreshUser();
+      await refreshCouple();
+      showFeedback('success', 'Succès', 'Photo de profil recadrée et mise à jour ! 📸');
+    } catch (e) {
+      console.warn('Avatar upload error:', e?.response?.data || e);
+      showFeedback('error', 'Erreur', 'Échec du changement de photo de profil.');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const handleConfirmCropAvatar = async () => {
+    if (!cropAsset) return;
+    if (Platform.OS === 'web' && typeof document !== 'undefined') {
+      try {
+        const img = await new Promise((resolve, reject) => {
+          const el = new window.Image();
+          el.crossOrigin = 'anonymous';
+          el.onload = () => resolve(el);
+          el.onerror = reject;
+          el.src = cropAsset.uri;
+        });
+
+        const size = 512;
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+
+        // Cover-fit + apply user zoom & pan offset
+        const baseScale = Math.max(size / img.width, size / img.height);
+        const finalScale = baseScale * cropZoom;
+        const drawW = img.width * finalScale;
+        const drawH = img.height * finalScale;
+        const scaleRatio = size / 220;
+        const drawX = (size - drawW) / 2 + cropOffsetX * scaleRatio;
+        const drawY = (size - drawH) / 2 + cropOffsetY * scaleRatio;
+
+        ctx.fillStyle = '#17151C';
+        ctx.fillRect(0, 0, size, size);
+        ctx.drawImage(img, drawX, drawY, drawW, drawH);
+
+        const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.9));
+        const previewDataUrl = canvas.toDataURL('image/jpeg', 0.9);
+        const chosen = cropAsset;
+        setCropAsset(null);
+        await uploadAvatarAsset(chosen, blob, previewDataUrl);
+        return;
+      } catch (e) {
+        console.warn('Canvas crop failed, uploading raw image:', e);
+      }
+    }
+    const chosen = cropAsset;
+    setCropAsset(null);
+    await uploadAvatarAsset(chosen);
+  };
+
+  const handleSaveStartDate = async () => {
+    if (!startDateInput.trim()) return;
+    setSavingDate(true);
+    try {
+      await api.patch('/couples/me/', { relationship_start_date: startDateInput.trim() });
+      await refreshCouple();
+      showFeedback('success', 'Succès', 'Date de début de relation mise à jour ! ❤️');
+    } catch {
+      showFeedback('error', 'Erreur', 'Format attendu : AAAA-MM-JJ (ex: 2025-02-14).');
+    } finally {
+      setSavingDate(false);
     }
   };
 
@@ -224,8 +310,30 @@ export default function ProfileScreen() {
         <View style={styles.infoRow}>
           <Text style={styles.infoLabel}>Ensemble depuis :</Text>
           <Text style={styles.infoValue}>
-            {couple?.relationship_days !== null ? `${couple?.relationship_days} jours` : 'Non renseigné'}
+            {couple?.relationship_days ? `${couple.relationship_days} jours` : '1 jour'}
           </Text>
+        </View>
+
+        <Text style={[styles.inputLabel, { marginTop: 12 }]}>Date officielle de début (AAAA-MM-JJ)</Text>
+        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+          <TextInput
+            style={[styles.textInput, { flex: 1, marginBottom: 0 }]}
+            value={startDateInput}
+            onChangeText={setStartDateInput}
+            placeholder="Ex: 2025-02-14"
+            placeholderTextColor={COLORS.textMuted}
+          />
+          <TouchableOpacity
+            style={{ backgroundColor: COLORS.primaryRose, borderRadius: 12, paddingHorizontal: 14, height: 46, justifyContent: 'center' }}
+            onPress={handleSaveStartDate}
+            disabled={savingDate}
+          >
+            {savingDate ? (
+              <ActivityIndicator size="small" color={COLORS.deepBlack} />
+            ) : (
+              <Text style={{ color: COLORS.deepBlack, fontWeight: '700', fontSize: 13 }}>OK</Text>
+            )}
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -342,6 +450,123 @@ export default function ProfileScreen() {
           </View>
         </View>
       )}
+      {/* Interactive Avatar Crop & Framing Modal */}
+      <Modal visible={!!cropAsset} animationType="fade" transparent>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+          <View style={{ width: '100%', maxWidth: 380, backgroundColor: COLORS.surface, borderRadius: 26, padding: 22, borderWidth: 1, borderColor: COLORS.surfaceBorder, alignItems: 'center' }}>
+            <Text style={{ color: COLORS.primaryRose, fontSize: 18, fontWeight: '800', marginBottom: 6 }}>
+              ✂️ Recadrer ma photo de profil
+            </Text>
+            <Text style={{ color: COLORS.textSecondary, fontSize: 12.5, textAlign: 'center', marginBottom: 16 }}>
+              Zoome et déplace l’image pour bien centrer ton visage dans le cercle
+            </Text>
+
+            {/* Circular 220x220 Live Crop Frame */}
+            <View
+              style={{
+                width: 220,
+                height: 220,
+                borderRadius: 110,
+                overflow: 'hidden',
+                borderWidth: 3,
+                borderColor: COLORS.primaryRose,
+                backgroundColor: COLORS.deepBlack,
+                justifyContent: 'center',
+                alignItems: 'center',
+                marginBottom: 18,
+              }}
+            >
+              {cropAsset && (
+                <Image
+                  source={{ uri: cropAsset.uri }}
+                  style={{
+                    width: 220,
+                    height: 220,
+                    transform: [
+                      { translateX: cropOffsetX },
+                      { translateY: cropOffsetY },
+                      { scale: cropZoom },
+                    ],
+                  }}
+                  resizeMode="cover"
+                />
+              )}
+            </View>
+
+            {/* Zoom Controls */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+              <TouchableOpacity
+                style={{ backgroundColor: COLORS.surfaceElevated, width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' }}
+                onPress={() => setCropZoom((z) => Math.max(1.0, Number((z - 0.15).toFixed(2))))}
+              >
+                <Ionicons name="remove" size={20} color={COLORS.textPrimary} />
+              </TouchableOpacity>
+              <Text style={{ color: COLORS.textPrimary, fontWeight: '700', fontSize: 14, minWidth: 80, textAlign: 'center' }}>
+                Zoom {Math.round(cropZoom * 100)}%
+              </Text>
+              <TouchableOpacity
+                style={{ backgroundColor: COLORS.surfaceElevated, width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' }}
+                onPress={() => setCropZoom((z) => Math.min(2.5, Number((z + 0.15).toFixed(2))))}
+              >
+                <Ionicons name="add" size={20} color={COLORS.textPrimary} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Pan / Framing Controls */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+              <TouchableOpacity
+                style={{ backgroundColor: COLORS.surfaceElevated, width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' }}
+                onPress={() => setCropOffsetX((x) => Math.max(-90, x - 14))}
+              >
+                <Ionicons name="arrow-back" size={18} color={COLORS.primaryRose} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ backgroundColor: COLORS.surfaceElevated, width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' }}
+                onPress={() => setCropOffsetY((y) => Math.max(-90, y - 14))}
+              >
+                <Ionicons name="arrow-up" size={18} color={COLORS.primaryRose} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ backgroundColor: COLORS.surfaceElevated, paddingHorizontal: 12, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' }}
+                onPress={() => {
+                  setCropZoom(1.0);
+                  setCropOffsetX(0);
+                  setCropOffsetY(0);
+                }}
+              >
+                <Text style={{ color: COLORS.textSecondary, fontSize: 12, fontWeight: '700' }}>Centrer</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ backgroundColor: COLORS.surfaceElevated, width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' }}
+                onPress={() => setCropOffsetY((y) => Math.min(90, y + 14))}
+              >
+                <Ionicons name="arrow-down" size={18} color={COLORS.primaryRose} />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ backgroundColor: COLORS.surfaceElevated, width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' }}
+                onPress={() => setCropOffsetX((x) => Math.min(90, x + 14))}
+              >
+                <Ionicons name="arrow-forward" size={18} color={COLORS.primaryRose} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 10, width: '100%' }}>
+              <TouchableOpacity
+                style={{ flex: 1, backgroundColor: COLORS.surfaceElevated, borderRadius: 14, height: 46, justifyContent: 'center', alignItems: 'center' }}
+                onPress={() => setCropAsset(null)}
+              >
+                <Text style={{ color: COLORS.textPrimary, fontWeight: '600' }}>Annuler</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ flex: 1, backgroundColor: COLORS.primaryRose, borderRadius: 14, height: 46, justifyContent: 'center', alignItems: 'center' }}
+                onPress={handleConfirmCropAvatar}
+              >
+                <Text style={{ color: COLORS.deepBlack, fontWeight: '800' }}>✅ Valider</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }

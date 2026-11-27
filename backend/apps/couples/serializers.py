@@ -32,11 +32,11 @@ class CoupleSerializer(serializers.ModelSerializer):
         return UserSerializer(partner, context={'request': request}).data if partner else None
 
     def get_relationship_days(self, obj):
-        if not obj.relationship_start_date:
-            return None
-        today = timezone.now().date()
-        delta = today - obj.relationship_start_date
-        return max(0, delta.days)
+        from apps.flames.models import get_current_dakar_date
+        today = get_current_dakar_date()
+        start_ref = obj.relationship_start_date or (obj.created_at.date() if obj.created_at else today)
+        delta = today - start_ref
+        return max(1, delta.days + 1) if delta.days >= 0 else 0
 
     def get_current_flame(self, obj):
         if hasattr(obj, 'flame'):

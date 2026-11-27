@@ -27,7 +27,7 @@ import { useAuth } from '../../src/context/AuthContext';
 import { COLORS } from '../../src/theme/colors';
 
 export default function HomeScreen() {
-  const { user } = useAuth();
+  const { user, couple } = useAuth();
   const [dashboard, setDashboard] = useState(null);
   const [instants, setInstants] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -217,7 +217,18 @@ export default function HomeScreen() {
   const partner = dashboard?.partner;
   const flame = dashboard?.flame;
   const nextEvent = dashboard?.next_event;
-  const relationshipDays = dashboard?.couple?.relationship_days ?? 0;
+  const computedFallbackDays = (() => {
+    const startStr = dashboard?.couple?.relationship_start_date || couple?.relationship_start_date || couple?.created_at;
+    if (!startStr) return 1;
+    const startMs = new Date(startStr).getTime();
+    if (Number.isNaN(startMs)) return 1;
+    const diff = Math.floor((Date.now() - startMs) / 86400000);
+    return Math.max(1, diff + 1);
+  })();
+  const relationshipDays =
+    dashboard?.couple?.relationship_days && dashboard.couple.relationship_days > 0
+      ? dashboard.couple.relationship_days
+      : computedFallbackDays;
   const unreadMessagesCount = dashboard?.unread_messages_count ?? 0;
 
   return (
@@ -312,8 +323,54 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* Instagram-style Daily Instants (Vue unique 1x — critère Flamme) */}
+      {/* Love Match Header (Les deux amoureux & Jours ensemble — en haut) */}
       <FadeSlideIn delay={60}>
+      <View style={styles.loveMatchCard}>
+        <View style={styles.partnerColumn}>
+          <View style={styles.avatarWrapper}>
+            {user?.profile?.avatar ? (
+              <Image source={{ uri: resolveMediaUrl(user.profile.avatar) }} style={styles.avatar} />
+            ) : (
+              <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                <Text style={styles.avatarInitials}>{user?.first_name?.[0] || user?.username?.[0] || 'M'}</Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.partnerName} numberOfLines={1}>
+            {user?.profile?.nickname || user?.first_name || 'Moi'}
+          </Text>
+        </View>
+
+        {/* Central Love Pulse */}
+        <TouchableOpacity style={styles.lovePulse} activeOpacity={0.8} onPress={() => setBurstKey((k) => k + 1)}>
+          <PulseView active mode="heartbeat">
+            <Text style={styles.heartPulse}>❤️</Text>
+          </PulseView>
+          <Text style={styles.relationshipDaysText}>
+            {relationshipDays} {relationshipDays > 1 ? 'jours' : 'jour'}
+          </Text>
+          <Text style={styles.togetherLabel}>ensemble</Text>
+        </TouchableOpacity>
+
+        <View style={styles.partnerColumn}>
+          <View style={styles.avatarWrapper}>
+            {partner?.profile?.avatar ? (
+              <Image source={{ uri: resolveMediaUrl(partner.profile.avatar) }} style={styles.avatar} />
+            ) : (
+              <View style={[styles.avatar, styles.avatarPlaceholder]}>
+                <Text style={styles.avatarInitials}>{partner?.first_name?.[0] || partner?.username?.[0] || 'B'}</Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.partnerName} numberOfLines={1}>
+            {partner?.profile?.nickname || partner?.first_name || 'Bae'}
+          </Text>
+        </View>
+      </View>
+      </FadeSlideIn>
+
+      {/* Instagram-style Daily Instants (Vue unique 1x — critère Flamme) */}
+      <FadeSlideIn delay={150}>
       <View
         style={{
           backgroundColor: COLORS.surface,
@@ -322,17 +379,16 @@ export default function HomeScreen() {
           marginBottom: 18,
           borderWidth: 1,
           borderColor: COLORS.surfaceBorder,
+          overflow: 'hidden',
         }}
       >
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-          <View>
-            <Text style={{ color: COLORS.textPrimary, fontSize: 15.5, fontWeight: '800' }}>
-              🔥 Instants du Jour
-            </Text>
-            <Text style={{ color: COLORS.textMuted, fontSize: 11.5, marginTop: 2 }}>
-              1 photo ou vidéo / jour chacun • Vue unique (1×) pour garder la flamme
-            </Text>
-          </View>
+        <View style={{ marginBottom: 14 }}>
+          <Text style={{ color: COLORS.textPrimary, fontSize: 15.5, fontWeight: '800' }}>
+            🔥 Instants du Jour
+          </Text>
+          <Text style={{ color: COLORS.textMuted, fontSize: 11.5, marginTop: 3, lineHeight: 16 }}>
+            1 photo ou vidéo / jour chacun • Vue unique (1×) pour garder la flamme
+          </Text>
         </View>
 
         <View style={{ flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' }}>
@@ -488,50 +544,6 @@ export default function HomeScreen() {
                 : 'En attente...'}
             </Text>
           </TouchableOpacity>
-        </View>
-      </View>
-      </FadeSlideIn>
-
-      {/* Love Match Header (Les deux amoureux) */}
-      <FadeSlideIn delay={150}>
-      <View style={styles.loveMatchCard}>
-        <View style={styles.partnerColumn}>
-          <View style={styles.avatarWrapper}>
-            {user?.profile?.avatar ? (
-              <Image source={{ uri: resolveMediaUrl(user.profile.avatar) }} style={styles.avatar} />
-            ) : (
-              <View style={[styles.avatar, styles.avatarPlaceholder]}>
-                <Text style={styles.avatarInitials}>{user?.first_name?.[0] || user?.username?.[0] || 'M'}</Text>
-              </View>
-            )}
-          </View>
-          <Text style={styles.partnerName} numberOfLines={1}>
-            {user?.profile?.nickname || user?.first_name || 'Moi'}
-          </Text>
-        </View>
-
-        {/* Central Love Pulse */}
-        <TouchableOpacity style={styles.lovePulse} activeOpacity={0.8} onPress={() => setBurstKey((k) => k + 1)}>
-          <PulseView active mode="heartbeat">
-            <Text style={styles.heartPulse}>❤️</Text>
-          </PulseView>
-          <Text style={styles.relationshipDaysText}>{relationshipDays} jours</Text>
-          <Text style={styles.togetherLabel}>ensemble</Text>
-        </TouchableOpacity>
-
-        <View style={styles.partnerColumn}>
-          <View style={styles.avatarWrapper}>
-            {partner?.profile?.avatar ? (
-              <Image source={{ uri: resolveMediaUrl(partner.profile.avatar) }} style={styles.avatar} />
-            ) : (
-              <View style={[styles.avatar, styles.avatarPlaceholder]}>
-                <Text style={styles.avatarInitials}>{partner?.first_name?.[0] || partner?.username?.[0] || 'B'}</Text>
-              </View>
-            )}
-          </View>
-          <Text style={styles.partnerName} numberOfLines={1}>
-            {partner?.profile?.nickname || partner?.first_name || 'Bae'}
-          </Text>
         </View>
       </View>
       </FadeSlideIn>
