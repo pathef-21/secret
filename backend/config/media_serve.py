@@ -112,12 +112,24 @@ def serve_media_with_range(request, path):
         resp['Access-Control-Allow-Origin'] = '*'
         return resp
 
-    # 2. Permanent PostgreSQL fallback for voice notes (survives Render ephemeral disk wipes!)
+    # 2. Permanent PostgreSQL fallback for chat media, memories, and daily instants
     from apps.messaging.models import MessageAttachment
+    from apps.memories.models import Memory
+    from apps.flames.models import DailyInstant
 
     att = MessageAttachment.objects.filter(file=normalized).exclude(file_data__isnull=True).first()
     if att and att.file_data:
         content_type = att.mime_type or _guess_mime(normalized, 'audio/mp4')
         return _build_range_response(request, bytes(att.file_data), content_type)
+
+    mem = Memory.objects.filter(media_file=normalized).exclude(file_data__isnull=True).first()
+    if mem and mem.file_data:
+        content_type = mem.mime_type or _guess_mime(normalized, 'image/jpeg')
+        return _build_range_response(request, bytes(mem.file_data), content_type)
+
+    inst = DailyInstant.objects.filter(media_file=normalized).exclude(file_data__isnull=True).first()
+    if inst and inst.file_data:
+        content_type = inst.mime_type or _guess_mime(normalized, 'image/jpeg')
+        return _build_range_response(request, bytes(inst.file_data), content_type)
 
     raise Http404('Media file not found')

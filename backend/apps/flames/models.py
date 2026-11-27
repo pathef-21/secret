@@ -134,6 +134,8 @@ class DailyInstant(models.Model):
     sender = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='sent_instants')
     instant_date = models.DateField(default=get_current_dakar_date, db_index=True)
     media_file = models.FileField(upload_to='instants/')
+    file_data = models.BinaryField(null=True, blank=True, help_text="Sauvegarde binaire permanente")
+    mime_type = models.CharField(max_length=80, blank=True, default='')
     media_type = models.CharField(max_length=10, choices=MEDIA_TYPES, default='image')
     caption = models.CharField(max_length=160, blank=True, default='')
     viewed_by_partner = models.BooleanField(default=False)

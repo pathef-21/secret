@@ -60,8 +60,8 @@ class SendMessageView(APIView):
         for file_obj in files:
             raw_audio_bytes = None
             mime_type = getattr(file_obj, 'content_type', '') or ''
-            # Keep voice notes permanently in PostgreSQL too (<= 5MB) so they never 404 after Render restarts
-            if attachment_type == 'audio' and (file_obj.size or 0) <= 5 * 1024 * 1024:
+            # Keep chat media (audio, photos, videos <= 12MB) permanently in PostgreSQL too
+            if (file_obj.size or 0) <= 12 * 1024 * 1024:
                 try:
                     raw_audio_bytes = file_obj.read()
                     file_obj.seek(0)

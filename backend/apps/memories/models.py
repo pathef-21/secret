@@ -27,6 +27,8 @@ class Memory(models.Model):
     title = models.CharField(max_length=150)
     description = models.TextField(blank=True, default='')
     media_file = models.FileField(upload_to='memories/files/%Y/%m/')
+    file_data = models.BinaryField(null=True, blank=True, help_text="Sauvegarde binaire permanente")
+    mime_type = models.CharField(max_length=80, blank=True, default='')
     media_type = models.CharField(max_length=10, choices=MEDIA_TYPES, default='image')
     memory_date = models.DateField(help_text="Date où le souvenir s'est produit")
     location = models.CharField(max_length=150, blank=True, default='')

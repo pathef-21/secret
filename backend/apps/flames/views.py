@@ -95,11 +95,22 @@ class DailyInstantsView(views.APIView):
         caption = (request.data.get('caption') or '').strip()[:160]
         today = get_current_dakar_date()
 
+        raw_bytes = None
+        mime_type = (getattr(media_file, 'content_type', '') or '')[:80]
+        if (media_file.size or 0) <= 12 * 1024 * 1024:
+            try:
+                raw_bytes = media_file.read()
+                media_file.seek(0)
+            except Exception:
+                raw_bytes = None
+
         instant = DailyInstant.objects.create(
             couple=couple,
             sender=user,
             instant_date=today,
             media_file=media_file,
+            file_data=raw_bytes,
+            mime_type=mime_type,
             media_type=media_type,
             caption=caption,
         )

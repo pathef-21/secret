@@ -33,7 +33,22 @@ class MemoryViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         couple = self.request.user.couple_membership.couple
-        serializer.save(couple=couple, created_by=self.request.user)
+        file_obj = self.request.FILES.get('media_file')
+        raw_bytes = None
+        mime_type = ''
+        if file_obj and (file_obj.size or 0) <= 12 * 1024 * 1024:
+            mime_type = (getattr(file_obj, 'content_type', '') or '')[:80]
+            try:
+                raw_bytes = file_obj.read()
+                file_obj.seek(0)
+            except Exception:
+                raw_bytes = None
+        serializer.save(
+            couple=couple,
+            created_by=self.request.user,
+            file_data=raw_bytes,
+            mime_type=mime_type,
+        )
 
 class MemoryCommentViewSet(viewsets.ModelViewSet):
     serializer_class = MemoryCommentSerializer
