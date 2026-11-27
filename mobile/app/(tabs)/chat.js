@@ -67,6 +67,7 @@ export default function ChatScreen() {
   const localStreamRef = useRef(null);
   const remoteAudioRef = useRef(null);
   const pendingOfferRef = useRef(null);
+  const pendingIceRef = useRef([]);
   const callTimerRef = useRef(null);
   const ringIntervalRef = useRef(null);
   const ringTimeoutRef = useRef(null);
@@ -74,6 +75,7 @@ export default function ChatScreen() {
   const isOutgoingCallRef = useRef(false);
   const callConnectedRef = useRef(false);
   const callSecondsRef = useRef(0);
+  const partnerRef = useRef(null);
 
   const stopRingtone = useCallback(() => {
     clearInterval(ringIntervalRef.current);
@@ -146,6 +148,7 @@ export default function ChatScreen() {
   const typingTimeoutRef = useRef(null);
 
   const partner = couple?.memberships?.find((m) => String(m.user.id) !== String(user?.id))?.user;
+  partnerRef.current = partner;
 
   // 1. Mark read + fetch message history
   const markAsRead = useCallback(async () => {
@@ -223,6 +226,7 @@ export default function ChatScreen() {
       remoteAudioRef.current = null;
     }
     pendingOfferRef.current = null;
+    pendingIceRef.current = [];
     isOutgoingCallRef.current = false;
     callConnectedRef.current = false;
     callSecondsRef.current = 0;
@@ -267,7 +271,7 @@ export default function ChatScreen() {
           callSecondsRef.current += 1;
           setCallSeconds(callSecondsRef.current);
         }, 1000);
-      } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+      } else if (pc.connectionState === 'failed' || pc.connectionState === 'closed') {
         cleanupCall();
       }
     };
@@ -328,6 +332,12 @@ export default function ChatScreen() {
       stream.getTracks().forEach((track) => pc.addTrack(track, stream));
 
       await pc.setRemoteDescription(new RTCSessionDescription(pendingOfferRef.current));
+      for (const cand of pendingIceRef.current) {
+        try {
+          await pc.addIceCandidate(new RTCIceCandidate(cand));
+        } catch {}
+      }
+      pendingIceRef.current = [];
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
 
@@ -388,6 +398,13 @@ export default function ChatScreen() {
     }
   };
 
+  // Cleanup call ONLY when actually leaving ChatScreen
+  useEffect(() => {
+    return () => {
+      cleanupCall();
+    };
+  }, [cleanupCall]);
+
   useEffect(() => {
     fetchMessages();
     refreshCouple();
@@ -412,19 +429,30 @@ export default function ChatScreen() {
         const { signal_type, payload, sender_name } = data;
         if (signal_type === 'offer' && payload?.sdp) {
           pendingOfferRef.current = payload.sdp;
-          setCallerName(sender_name || partner?.profile?.nickname || 'Mon Bae');
+          pendingIceRef.current = [];
+          setCallerName(sender_name || partnerRef.current?.profile?.nickname || 'Mon Bae');
           setCallStatus('incoming');
         } else if (signal_type === 'answer' && payload?.sdp && peerConnRef.current) {
           try {
             clearTimeout(ringTimeoutRef.current);
             callConnectedRef.current = true;
             await peerConnRef.current.setRemoteDescription(new RTCSessionDescription(payload.sdp));
+            for (const cand of pendingIceRef.current) {
+              try {
+                await peerConnRef.current.addIceCandidate(new RTCIceCandidate(cand));
+              } catch {}
+            }
+            pendingIceRef.current = [];
             setCallStatus('connected');
           } catch {}
-        } else if (signal_type === 'ice' && payload?.candidate && peerConnRef.current) {
-          try {
-            await peerConnRef.current.addIceCandidate(new RTCIceCandidate(payload.candidate));
-          } catch {}
+        } else if (signal_type === 'ice' && payload?.candidate) {
+          if (peerConnRef.current && peerConnRef.current.remoteDescription) {
+            try {
+              await peerConnRef.current.addIceCandidate(new RTCIceCandidate(payload.candidate));
+            } catch {}
+          } else {
+            pendingIceRef.current.push(payload.candidate);
+          }
         } else if (signal_type === 'hangup' || signal_type === 'reject') {
           const shouldLogMissed = isOutgoingCallRef.current && !callConnectedRef.current;
           cleanupCall();
@@ -440,9 +468,8 @@ export default function ChatScreen() {
       clearInterval(recordTimerRef.current);
       removeListener();
       clearTimeout(typingTimeoutRef.current);
-      cleanupCall();
     };
-  }, [fetchMessages, markAsRead, cleanupCall, partner]);
+  }, [fetchMessages, markAsRead, cleanupCall, logCallEventInChat]);
 
   const handleTextChange = (text) => {
     setInputText(text);
