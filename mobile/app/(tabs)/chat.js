@@ -67,7 +67,11 @@ export default function ChatScreen() {
   const pendingOfferRef = useRef(null);
   const callTimerRef = useRef(null);
   const ringIntervalRef = useRef(null);
+  const ringTimeoutRef = useRef(null);
   const audioCtxRef = useRef(null);
+  const isOutgoingCallRef = useRef(false);
+  const callConnectedRef = useRef(false);
+  const callSecondsRef = useRef(0);
 
   const stopRingtone = useCallback(() => {
     clearInterval(ringIntervalRef.current);
@@ -174,9 +178,27 @@ export default function ChatScreen() {
     }
   }, [markAsRead]);
 
+  // Log a WhatsApp-style call event (missed call or completed call) in the chat
+  const logCallEventInChat = useCallback(async (text) => {
+    try {
+      const res = await api.post('/chat/send/', {
+        message_type: 'text',
+        content: text,
+      });
+      setMessages((prev) => {
+        if (prev.some((m) => String(m.id) === String(res.data.id))) return prev;
+        return [res.data, ...prev];
+      });
+    } catch {
+      // Ignore silent log errors
+    }
+  }, []);
+
   // Cleanup WebRTC call resources
   const cleanupCall = useCallback(() => {
     stopRingtone();
+    clearTimeout(ringTimeoutRef.current);
+    ringTimeoutRef.current = null;
     clearInterval(callTimerRef.current);
     callTimerRef.current = null;
     if (peerConnRef.current) {
@@ -199,6 +221,9 @@ export default function ChatScreen() {
       remoteAudioRef.current = null;
     }
     pendingOfferRef.current = null;
+    isOutgoingCallRef.current = false;
+    callConnectedRef.current = false;
+    callSecondsRef.current = 0;
     setCallStatus('idle');
     setCallSeconds(0);
     setIsMuted(false);
@@ -232,10 +257,13 @@ export default function ChatScreen() {
     };
     pc.onconnectionstatechange = () => {
       if (pc.connectionState === 'connected') {
+        clearTimeout(ringTimeoutRef.current);
+        callConnectedRef.current = true;
         setCallStatus('connected');
         clearInterval(callTimerRef.current);
         callTimerRef.current = setInterval(() => {
-          setCallSeconds((prev) => prev + 1);
+          callSecondsRef.current += 1;
+          setCallSeconds(callSecondsRef.current);
         }, 1000);
       } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
         cleanupCall();
@@ -262,12 +290,25 @@ export default function ChatScreen() {
       await pc.setLocalDescription(offer);
 
       setCallStatus('calling');
+      isOutgoingCallRef.current = true;
+      callConnectedRef.current = false;
+      callSecondsRef.current = 0;
       setCallerName(partner?.profile?.nickname || partner?.first_name || 'Mon Bae');
       const sent = chatWS.sendCallSignal('offer', { sdp: offer });
       if (!sent) {
         chatWS.connect();
         setTimeout(() => chatWS.sendCallSignal('offer', { sdp: offer }), 1200);
       }
+
+      // If partner doesn't answer after 30s -> log WhatsApp-style missed call
+      clearTimeout(ringTimeoutRef.current);
+      ringTimeoutRef.current = setTimeout(() => {
+        if (!callConnectedRef.current && isOutgoingCallRef.current) {
+          chatWS.sendCallSignal('hangup', {});
+          cleanupCall();
+          logCallEventInChat('📵 Appel vocal en absence');
+        }
+      }, 30000);
     } catch (e) {
       cleanupCall();
       setChatError('Impossible d’accéder au micro pour l’appel vocal.');
@@ -289,10 +330,12 @@ export default function ChatScreen() {
       await pc.setLocalDescription(answer);
 
       chatWS.sendCallSignal('answer', { sdp: answer });
+      callConnectedRef.current = true;
       setCallStatus('connected');
       clearInterval(callTimerRef.current);
       callTimerRef.current = setInterval(() => {
-        setCallSeconds((prev) => prev + 1);
+        callSecondsRef.current += 1;
+        setCallSeconds(callSecondsRef.current);
       }, 1000);
     } catch (e) {
       cleanupCall();
@@ -301,8 +344,18 @@ export default function ChatScreen() {
   };
 
   const endVoiceCall = (isReject = false) => {
+    const wasOutgoing = isOutgoingCallRef.current;
+    const wasConnected = callConnectedRef.current;
+    const duration = callSecondsRef.current;
+
     chatWS.sendCallSignal(isReject ? 'reject' : 'hangup', {});
     cleanupCall();
+
+    if (wasOutgoing && !wasConnected) {
+      logCallEventInChat('📵 Appel vocal en absence');
+    } else if (wasOutgoing && wasConnected && duration > 0) {
+      logCallEventInChat(`📞 Appel vocal • ${formatDuration(duration)}`);
+    }
   };
 
   const toggleMuteCall = () => {
@@ -360,6 +413,8 @@ export default function ChatScreen() {
           setCallStatus('incoming');
         } else if (signal_type === 'answer' && payload?.sdp && peerConnRef.current) {
           try {
+            clearTimeout(ringTimeoutRef.current);
+            callConnectedRef.current = true;
             await peerConnRef.current.setRemoteDescription(new RTCSessionDescription(payload.sdp));
             setCallStatus('connected');
           } catch {}
@@ -368,7 +423,11 @@ export default function ChatScreen() {
             await peerConnRef.current.addIceCandidate(new RTCIceCandidate(payload.candidate));
           } catch {}
         } else if (signal_type === 'hangup' || signal_type === 'reject') {
+          const shouldLogMissed = isOutgoingCallRef.current && !callConnectedRef.current;
           cleanupCall();
+          if (shouldLogMissed) {
+            logCallEventInChat('📵 Appel vocal en absence');
+          }
         }
       }
     });
@@ -612,9 +671,64 @@ export default function ChatScreen() {
   const renderMessageItem = ({ item }) => {
     const isMe = String(item.sender?.id) === String(user?.id);
     const isHeart = item.message_type === 'heart';
+    const contentStr = item.content || '';
+    const isMissedCall = contentStr.startsWith('📵 Appel vocal en absence');
+    const isCompletedCall = contentStr.startsWith('📞 Appel vocal');
     const firstAtt = item.attachments && item.attachments.length > 0 ? item.attachments[0] : null;
     const isAudio = item.message_type === 'audio' || firstAtt?.attachment_type === 'audio';
     const mediaUrl = firstAtt ? resolveMediaUrl(firstAtt.file) : null;
+
+    if (isMissedCall || isCompletedCall) {
+      return (
+        <View style={[styles.messageRow, isMe ? styles.myMessageRow : styles.partnerMessageRow]}>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => callStatus === 'idle' && startVoiceCall()}
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 12,
+              backgroundColor: COLORS.surfaceElevated,
+              borderColor: isMissedCall ? 'rgba(248,113,113,0.45)' : 'rgba(74,222,128,0.4)',
+              borderWidth: 1,
+              borderRadius: 18,
+              paddingHorizontal: 14,
+              paddingVertical: 10,
+              maxWidth: '82%',
+            }}
+          >
+            <View
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 19,
+                backgroundColor: isMissedCall ? 'rgba(248,113,113,0.18)' : 'rgba(74,222,128,0.18)',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+            >
+              <Ionicons
+                name="call"
+                size={18}
+                color={isMissedCall ? '#F87171' : '#4ADE80'}
+              />
+            </View>
+            <View>
+              <Text style={{ color: isMissedCall ? '#FCA5A5' : COLORS.textPrimary, fontWeight: '700', fontSize: 14 }}>
+                {isMissedCall
+                  ? isMe
+                    ? 'Appel vocal sans réponse'
+                    : 'Appel vocal en absence'
+                  : contentStr.replace('📞 ', '')}
+              </Text>
+              <Text style={{ color: COLORS.textMuted, fontSize: 11, marginTop: 2 }}>
+                {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • Appuyer pour rappeler
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+      );
+    }
 
     return (
       <View style={[styles.messageRow, isMe ? styles.myMessageRow : styles.partnerMessageRow]}>

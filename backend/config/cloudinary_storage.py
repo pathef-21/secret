@@ -5,26 +5,40 @@ Activated automatically when CLOUDINARY_URL=cloudinary://<api_key>:<api_secret>@
 """
 
 import hashlib
+import logging
 import os
 import time
 import urllib.parse
 import requests
-from django.core.files.storage import Storage
+from django.core.files.storage import FileSystemStorage, Storage
 from django.utils.deconstruct import deconstructible
+
+logger = logging.getLogger(__name__)
 
 
 @deconstructible
 class CloudinaryAutoStorage(Storage):
     def __init__(self, cloudinary_url=None):
         raw_url = (cloudinary_url or os.getenv('CLOUDINARY_URL', '')).strip()
+        if raw_url.startswith('CLOUDINARY_URL='):
+            raw_url = raw_url[len('CLOUDINARY_URL='):].strip()
         parsed = urllib.parse.urlparse(raw_url)
         self.cloud_name = parsed.hostname or ''
         self.api_key = urllib.parse.unquote(parsed.username or '')
         self.api_secret = urllib.parse.unquote(parsed.password or '')
+        self._local_fallback = FileSystemStorage()
+
+    def _is_configured(self):
+        if not (self.cloud_name and self.api_key and self.api_secret):
+            return False
+        if '<' in self.api_key or '<' in self.api_secret or '<' in self.cloud_name:
+            return False
+        return True
 
     def _save(self, name, content):
-        if not (self.cloud_name and self.api_key and self.api_secret):
-            raise RuntimeError('CLOUDINARY_URL is not properly configured.')
+        if not self._is_configured():
+            logger.warning('CLOUDINARY_URL has placeholder or missing credentials; falling back to local storage.')
+            return self._local_fallback._save(name, content)
 
         timestamp = str(int(time.time()))
         folder = 'manakbae'
@@ -37,19 +51,25 @@ class CloudinaryAutoStorage(Storage):
         filename = os.path.basename(name) or 'upload.bin'
 
         upload_url = f'https://api.cloudinary.com/v1_1/{self.cloud_name}/auto/upload'
-        resp = requests.post(
-            upload_url,
-            data={
-                'api_key': self.api_key,
-                'timestamp': timestamp,
-                'folder': folder,
-                'signature': signature,
-            },
-            files={'file': (filename, file_bytes)},
-            timeout=60,
-        )
-        resp.raise_for_status()
-        payload = resp.json()
+        try:
+            resp = requests.post(
+                upload_url,
+                data={
+                    'api_key': self.api_key,
+                    'timestamp': timestamp,
+                    'folder': folder,
+                    'signature': signature,
+                },
+                files={'file': (filename, file_bytes)},
+                timeout=60,
+            )
+            resp.raise_for_status()
+            payload = resp.json()
+        except Exception as exc:
+            logger.error(f'Cloudinary upload failed ({exc}); falling back to local storage.')
+            if hasattr(content, 'seek'):
+                content.seek(0)
+            return self._local_fallback._save(name, content)
 
         # Store compact path (< 100 chars) so it always fits Django FileField(max_length=100)
         resource_type = payload.get('resource_type', 'auto')
