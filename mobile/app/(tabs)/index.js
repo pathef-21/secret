@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Video, ResizeMode } from 'expo-av';
 import api, { appendImageToFormData, resolveMediaUrl } from '../../src/services/api';
+import { downloadMediaFile } from '../../src/services/downloadMedia';
 import {
   AmbientFloatingParticles,
   FadeSlideIn,
@@ -48,7 +49,77 @@ export default function HomeScreen() {
   const [openingInstant, setOpeningInstant] = useState(false);
   const [burstKey, setBurstKey] = useState(0);
 
+  // Live Home Gallery (Notre Galerie)
+  const [galleryItems, setGalleryItems] = useState([]);
+  const [uploadingGallery, setUploadingGallery] = useState(false);
+  const [galleryMsg, setGalleryMsg] = useState('');
+  const [viewingGalleryItem, setViewingGalleryItem] = useState(null);
+  const [downloadingGallery, setDownloadingGallery] = useState(false);
+
   const router = useRouter();
+
+  const fetchGallery = useCallback(async () => {
+    try {
+      const res = await api.get('/memories/items/');
+      const list = Array.isArray(res.data) ? res.data : (res.data?.results || []);
+      setGalleryItems(list.slice(0, 12));
+    } catch {
+      // Ignore silent errors
+    }
+  }, []);
+
+  const handleQuickAddGalleryPhoto = async () => {
+    setGalleryMsg('');
+    try {
+      if (Platform.OS !== 'web') {
+        const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (!perm.granted) {
+          setGalleryMsg('Autorisez l’accès à la galerie.');
+          return;
+        }
+      }
+      const res = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: false,
+        quality: 0.85,
+      });
+      if (res.canceled || !res.assets?.[0]) return;
+
+      const asset = res.assets[0];
+      setUploadingGallery(true);
+      const today = new Date().toISOString().split('T')[0];
+      const formData = new FormData();
+      formData.append('title', `Photo du ${new Date().toLocaleDateString('fr-FR')}`);
+      formData.append('description', '');
+      formData.append('location', '');
+      formData.append('memory_date', today);
+      formData.append('media_type', 'image');
+      await appendImageToFormData(formData, 'media_file', asset, 'galerie.jpg');
+      await api.post('/memories/items/', formData);
+      await fetchGallery();
+      setBurstKey((k) => k + 1);
+      setGalleryMsg('Photo ajoutée à la galerie ❤️');
+      setTimeout(() => setGalleryMsg(''), 3000);
+    } catch {
+      setGalleryMsg('Impossible d’ajouter la photo.');
+    } finally {
+      setUploadingGallery(false);
+    }
+  };
+
+  const handleDownloadGalleryItem = async (item) => {
+    if (!item?.media_file) return;
+    setDownloadingGallery(true);
+    try {
+      const url = resolveMediaUrl(item.media_file);
+      const ext = item.media_type === 'video' ? 'mp4' : 'jpg';
+      await downloadMediaFile(url, `manakbae-galerie-${item.id || 'photo'}.${ext}`);
+      setGalleryMsg('Téléchargement lancé ✅');
+      setTimeout(() => setGalleryMsg(''), 3000);
+    } finally {
+      setDownloadingGallery(false);
+    }
+  };
 
   const fetchInstants = useCallback(async () => {
     try {
@@ -196,14 +267,16 @@ export default function HomeScreen() {
   useEffect(() => {
     fetchDashboardData();
     fetchInstants();
+    fetchGallery();
     const timer = setInterval(fetchInstants, 8000);
     return () => clearInterval(timer);
-  }, [fetchDashboardData, fetchInstants]);
+  }, [fetchDashboardData, fetchInstants, fetchGallery]);
 
   const onRefresh = () => {
     setRefreshing(true);
     fetchDashboardData();
     fetchInstants();
+    fetchGallery();
   };
 
   if (loading) {
@@ -572,6 +645,119 @@ export default function HomeScreen() {
       </View>
       </FadeSlideIn>
 
+      {/* Notre Galerie (photos à jour sur l'accueil) */}
+      <FadeSlideIn delay={280}>
+      <View
+        style={{
+          backgroundColor: COLORS.surface,
+          borderRadius: 24,
+          padding: 18,
+          marginBottom: 16,
+          borderWidth: 1,
+          borderColor: COLORS.surfaceBorder,
+        }}
+      >
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <View>
+            <Text style={{ color: COLORS.primaryRose, fontSize: 16, fontWeight: '800' }}>
+              📸 Notre Galerie
+            </Text>
+            <Text style={{ color: COLORS.textSecondary, fontSize: 12, marginTop: 2 }}>
+              Vos photos récentes toujours à jour
+            </Text>
+          </View>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/memories')}>
+            <Text style={{ color: COLORS.primaryRose, fontSize: 12, fontWeight: '700' }}>Voir tout →</Text>
+          </TouchableOpacity>
+        </View>
+
+        {!!galleryMsg && (
+          <Text style={{ color: '#86efac', fontSize: 12, fontWeight: '600', marginBottom: 10 }}>
+            {galleryMsg}
+          </Text>
+        )}
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+          {/* Quick add photo tile */}
+          <TouchableOpacity
+            style={{
+              width: 96,
+              height: 118,
+              borderRadius: 16,
+              backgroundColor: 'rgba(242, 167, 198, 0.12)',
+              borderWidth: 1.5,
+              borderStyle: 'dashed',
+              borderColor: COLORS.primaryRose,
+              justifyContent: 'center',
+              alignItems: 'center',
+              padding: 8,
+            }}
+            onPress={handleQuickAddGalleryPhoto}
+            disabled={uploadingGallery}
+            activeOpacity={0.85}
+          >
+            {uploadingGallery ? (
+              <ActivityIndicator color={COLORS.primaryRose} />
+            ) : (
+              <>
+                <Ionicons name="add-circle" size={28} color={COLORS.primaryRose} />
+                <Text style={{ color: COLORS.primaryRose, fontSize: 11, fontWeight: '700', textAlign: 'center', marginTop: 6 }}>
+                  Ajouter une photo
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          {galleryItems.map((item) => (
+            <TouchableOpacity
+              key={String(item.id)}
+              style={{
+                width: 96,
+                height: 118,
+                borderRadius: 16,
+                overflow: 'hidden',
+                backgroundColor: COLORS.surfaceElevated,
+                borderWidth: 1,
+                borderColor: COLORS.surfaceBorder,
+              }}
+              onPress={() => setViewingGalleryItem(item)}
+              activeOpacity={0.88}
+            >
+              {item.media_type === 'video' ? (
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#1E1420' }}>
+                  <Ionicons name="play-circle" size={32} color={COLORS.primaryRose} />
+                  <Text style={{ color: COLORS.textSecondary, fontSize: 10, marginTop: 4 }}>Vidéo</Text>
+                </View>
+              ) : (
+                <Image
+                  source={{ uri: resolveMediaUrl(item.media_file) }}
+                  style={{ width: '100%', height: '100%' }}
+                />
+              )}
+            </TouchableOpacity>
+          ))}
+
+          {galleryItems.length === 0 && (
+            <View
+              style={{
+                width: 190,
+                height: 118,
+                borderRadius: 16,
+                backgroundColor: COLORS.surfaceElevated,
+                justifyContent: 'center',
+                alignItems: 'center',
+                paddingHorizontal: 14,
+              }}
+            >
+              <Text style={{ color: COLORS.textMuted, fontSize: 12, textAlign: 'center' }}>
+                Ajoutez votre première photo de couple ici 💕
+              </Text>
+            </View>
+          )}
+        </ScrollView>
+      </View>
+      </FadeSlideIn>
+
       {/* Citation Romantique Inspirante */}
       {dashboard?.quote_of_the_day && (
         <View style={styles.quoteCard}>
@@ -645,6 +831,86 @@ export default function HomeScreen() {
         <Text style={styles.openChatButtonText}>Parler à mon Bae ❤️</Text>
       </TouchableOpacity>
       {/* Modal 1: Send Daily Instant (Photo or Video) */}
+      {/* Modal 0: Fullscreen Home Gallery Photo Viewer + Download */}
+      <Modal visible={!!viewingGalleryItem} animationType="fade" transparent>
+        <View style={{ flex: 1, backgroundColor: '#000000' }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingHorizontal: 16,
+              paddingTop: Platform.OS === 'ios' ? 54 : 24,
+              paddingBottom: 14,
+              backgroundColor: 'rgba(0,0,0,0.85)',
+            }}
+          >
+            <View style={{ flex: 1, marginRight: 10 }}>
+              <Text style={{ color: '#fff', fontSize: 15, fontWeight: '800' }} numberOfLines={1}>
+                {viewingGalleryItem?.title || 'Notre Galerie'}
+              </Text>
+              {!!viewingGalleryItem?.memory_date && (
+                <Text style={{ color: COLORS.primaryRose, fontSize: 11, marginTop: 2 }}>
+                  {viewingGalleryItem.memory_date}
+                </Text>
+              )}
+            </View>
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+                backgroundColor: COLORS.primaryRose,
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                borderRadius: 12,
+                marginRight: 10,
+              }}
+              onPress={() => handleDownloadGalleryItem(viewingGalleryItem)}
+              disabled={downloadingGallery}
+            >
+              {downloadingGallery ? (
+                <ActivityIndicator size="small" color={COLORS.deepBlack} />
+              ) : (
+                <>
+                  <Ionicons name="download-outline" size={16} color={COLORS.deepBlack} />
+                  <Text style={{ color: COLORS.deepBlack, fontSize: 12, fontWeight: '800' }}>Télécharger</Text>
+                </>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: 'rgba(255,255,255,0.16)',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+              onPress={() => setViewingGalleryItem(null)}
+            >
+              <Ionicons name="close" size={22} color="#fff" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 8 }}>
+            {viewingGalleryItem?.media_type === 'video' && Platform.OS === 'web' ? (
+              <video
+                src={resolveMediaUrl(viewingGalleryItem.media_file)}
+                controls
+                playsInline
+                style={{ width: '100%', maxHeight: '85%', backgroundColor: '#000' }}
+              />
+            ) : viewingGalleryItem ? (
+              <Image
+                source={{ uri: resolveMediaUrl(viewingGalleryItem.media_file) }}
+                style={{ width: '100%', height: '100%' }}
+                resizeMode="contain"
+              />
+            ) : null}
+          </View>
+        </View>
+      </Modal>
       <Modal visible={createInstantVisible} animationType="slide" transparent>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.82)', justifyContent: 'flex-end' }}>
           <View style={{ backgroundColor: COLORS.surface, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, borderWidth: 1, borderColor: COLORS.surfaceBorder }}>

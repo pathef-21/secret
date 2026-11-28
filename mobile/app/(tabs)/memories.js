@@ -17,6 +17,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import api, { appendImageToFormData, resolveMediaUrl } from '../../src/services/api';
+import { downloadMediaFile } from '../../src/services/downloadMedia';
 import { COLORS } from '../../src/theme/colors';
 
 const { width } = Dimensions.get('window');
@@ -38,10 +39,34 @@ export default function MemoriesScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [modalError, setModalError] = useState('');
 
-  // Detail Modal
+  // Detail Modal & Fullscreen Lightbox
   const [selectedMemory, setSelectedMemory] = useState(null);
+  const [fullscreenMemory, setFullscreenMemory] = useState(null);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadStatus, setDownloadStatus] = useState('');
   const [commentText, setCommentText] = useState('');
   const [detailError, setDetailError] = useState('');
+
+  const handleDownloadMemory = async (mem) => {
+    if (!mem?.media_file) return;
+    setDownloading(true);
+    setDownloadStatus('');
+    try {
+      const url = resolveMediaUrl(mem.media_file);
+      const slug = (mem.title || 'souvenir')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '') || 'souvenir';
+      const ext = mem.media_type === 'video' ? 'mp4' : 'jpg';
+      await downloadMediaFile(url, `manakbae-${slug}.${ext}`);
+      setDownloadStatus('Téléchargement lancé ✅');
+      setTimeout(() => setDownloadStatus(''), 3000);
+    } catch {
+      setDownloadStatus('Impossible de télécharger.');
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   const fetchMemories = useCallback(async () => {
     try {
@@ -321,12 +346,91 @@ export default function MemoriesScreen() {
                         width: '100%',
                         maxHeight: 280,
                         borderRadius: 16,
-                        marginBottom: 14,
+                        marginBottom: 12,
                         backgroundColor: '#000',
                       }}
                     />
                   ) : (
-                    <Image source={{ uri: resolveMediaUrl(selectedMemory.media_file) }} style={styles.detailImage} />
+                    <TouchableOpacity
+                      activeOpacity={0.9}
+                      onPress={() => setFullscreenMemory(selectedMemory)}
+                      style={{ position: 'relative', marginBottom: 12 }}
+                    >
+                      <Image
+                        source={{ uri: resolveMediaUrl(selectedMemory.media_file) }}
+                        style={[styles.detailImage, { marginBottom: 0 }]}
+                      />
+                      <View
+                        style={{
+                          position: 'absolute',
+                          bottom: 10,
+                          right: 10,
+                          backgroundColor: 'rgba(0,0,0,0.68)',
+                          paddingHorizontal: 10,
+                          paddingVertical: 5,
+                          borderRadius: 12,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 5,
+                        }}
+                      >
+                        <Ionicons name="expand-outline" size={14} color="#fff" />
+                        <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>Voir en entier</Text>
+                      </View>
+                    </TouchableOpacity>
+                  )}
+
+                  {/* Fullscreen & Download quick bar */}
+                  <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
+                    {selectedMemory.media_type !== 'video' && (
+                      <TouchableOpacity
+                        style={{
+                          flex: 1,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 6,
+                          backgroundColor: COLORS.surfaceElevated,
+                          borderRadius: 12,
+                          paddingVertical: 10,
+                          borderWidth: 1,
+                          borderColor: COLORS.surfaceBorder,
+                        }}
+                        onPress={() => setFullscreenMemory(selectedMemory)}
+                      >
+                        <Ionicons name="expand-outline" size={16} color={COLORS.primaryRose} />
+                        <Text style={{ color: COLORS.textPrimary, fontSize: 13, fontWeight: '700' }}>Plein écran</Text>
+                      </TouchableOpacity>
+                    )}
+                    <TouchableOpacity
+                      style={{
+                        flex: 1,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 6,
+                        backgroundColor: COLORS.primaryRose,
+                        borderRadius: 12,
+                        paddingVertical: 10,
+                      }}
+                      onPress={() => handleDownloadMemory(selectedMemory)}
+                      disabled={downloading}
+                    >
+                      {downloading ? (
+                        <ActivityIndicator size="small" color={COLORS.deepBlack} />
+                      ) : (
+                        <>
+                          <Ionicons name="download-outline" size={16} color={COLORS.deepBlack} />
+                          <Text style={{ color: COLORS.deepBlack, fontSize: 13, fontWeight: '800' }}>Télécharger</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+
+                  {!!downloadStatus && (
+                    <Text style={{ color: '#86efac', fontSize: 12, textAlign: 'center', marginBottom: 10, fontWeight: '600' }}>
+                      {downloadStatus}
+                    </Text>
                   )}
                   {!!detailError && (
                     <Text style={{ color: '#fca5a5', fontSize: 12, marginBottom: 8 }}>{detailError}</Text>
@@ -363,6 +467,80 @@ export default function MemoriesScreen() {
               )}
             </ScrollView>
           </View>
+        </View>
+      </Modal>
+
+      {/* Fullscreen Photo Lightbox Modal */}
+      <Modal visible={!!fullscreenMemory} animationType="fade" transparent>
+        <View style={{ flex: 1, backgroundColor: '#000000' }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingHorizontal: 16,
+              paddingTop: Platform.OS === 'ios' ? 54 : 24,
+              paddingBottom: 14,
+              backgroundColor: 'rgba(0,0,0,0.85)',
+            }}
+          >
+            <View style={{ flex: 1, marginRight: 12 }}>
+              <Text style={{ color: '#fff', fontSize: 16, fontWeight: '800' }} numberOfLines={1}>
+                {fullscreenMemory?.title || 'Souvenir'}
+              </Text>
+              {!!fullscreenMemory?.memory_date && (
+                <Text style={{ color: COLORS.primaryRose, fontSize: 12, marginTop: 2 }}>
+                  {fullscreenMemory.memory_date}
+                </Text>
+              )}
+            </View>
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+                backgroundColor: COLORS.primaryRose,
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                borderRadius: 12,
+                marginRight: 10,
+              }}
+              onPress={() => handleDownloadMemory(fullscreenMemory)}
+              disabled={downloading}
+            >
+              <Ionicons name="download-outline" size={16} color={COLORS.deepBlack} />
+              <Text style={{ color: COLORS.deepBlack, fontSize: 12, fontWeight: '800' }}>Télécharger</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 18,
+                backgroundColor: 'rgba(255,255,255,0.16)',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+              onPress={() => setFullscreenMemory(null)}
+            >
+              <Ionicons name="close" size={22} color="#fff" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 8 }}>
+            {fullscreenMemory && (
+              <Image
+                source={{ uri: resolveMediaUrl(fullscreenMemory.media_file) }}
+                style={{ width: '100%', height: '100%' }}
+                resizeMode="contain"
+              />
+            )}
+          </View>
+
+          {!!downloadStatus && (
+            <View style={{ paddingBottom: 24, alignItems: 'center' }}>
+              <Text style={{ color: '#86efac', fontSize: 13, fontWeight: '700' }}>{downloadStatus}</Text>
+            </View>
+          )}
         </View>
       </Modal>
     </View>
