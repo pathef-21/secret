@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../src/services/api';
@@ -38,6 +39,9 @@ export default function CalendarScreen() {
   const [eventDate, setEventDate] = useState(new Date().toISOString().split('T')[0]);
   const [eventTime, setEventTime] = useState('20:00');
   const [submitting, setSubmitting] = useState(false);
+  const [modalError, setModalError] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchEvents = useCallback(async () => {
     try {
@@ -55,8 +59,11 @@ export default function CalendarScreen() {
   }, [fetchEvents]);
 
   const handleCreateEvent = async () => {
+    setModalError('');
     if (!title.trim() || !eventDate.trim() || !eventTime.trim()) {
-      Alert.alert('Champs requis', 'Veuillez saisir au moins le titre, la date et l’heure.');
+      const msg = 'Veuillez saisir au moins le titre, la date et l’heure.';
+      setModalError(msg);
+      if (Platform.OS !== 'web') Alert.alert('Champs requis', msg);
       return;
     }
 
@@ -75,30 +82,29 @@ export default function CalendarScreen() {
       setTitle('');
       setDescription('');
       setLocation('');
+      setModalError('');
       fetchEvents();
     } catch (e) {
-      Alert.alert('Erreur', 'Impossible d’enregistrer le rendez-vous.');
+      const msg = e?.response?.data?.detail || 'Impossible d’enregistrer le rendez-vous.';
+      setModalError(msg);
+      if (Platform.OS !== 'web') Alert.alert('Erreur', msg);
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handleDeleteEvent = async (id) => {
-    Alert.alert('Supprimer', 'Voulez-vous vraiment annuler ce rendez-vous ?', [
-      { text: 'Non', style: 'cancel' },
-      {
-        text: 'Oui',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await api.delete(`/calendar/events/${id}/`);
-            fetchEvents();
-          } catch {
-            Alert.alert('Erreur', 'Impossible de supprimer.');
-          }
-        },
-      },
-    ]);
+  const confirmDeleteEvent = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await api.delete(`/calendar/events/${deleteTarget.id}/`);
+      setDeleteTarget(null);
+      fetchEvents();
+    } catch {
+      if (Platform.OS !== 'web') Alert.alert('Erreur', 'Impossible de supprimer.');
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
@@ -169,7 +175,7 @@ export default function CalendarScreen() {
                     <Text style={styles.eventDesc}>{item.description}</Text>
                   ) : null}
                 </View>
-                <TouchableOpacity onPress={() => handleDeleteEvent(item.id)} style={styles.deleteBtn}>
+                <TouchableOpacity onPress={() => setDeleteTarget(item)} style={styles.deleteBtn}>
                   <Ionicons name="trash-outline" size={18} color={COLORS.textMuted} />
                 </TouchableOpacity>
               </View>
@@ -197,6 +203,11 @@ export default function CalendarScreen() {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
+              {!!modalError && (
+                <View style={{ backgroundColor: 'rgba(239,68,68,0.16)', borderColor: '#ef4444', borderWidth: 1, borderRadius: 12, padding: 10, marginBottom: 14 }}>
+                  <Text style={{ color: '#fca5a5', fontSize: 13, textAlign: 'center' }}>{modalError}</Text>
+                </View>
+              )}
               <Text style={styles.inputLabel}>Titre de l'événement</Text>
               <TextInput
                 style={styles.textInput}
@@ -281,6 +292,38 @@ export default function CalendarScreen() {
                 )}
               </TouchableOpacity>
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Cross-platform Delete Confirmation Modal */}
+      <Modal visible={!!deleteTarget} animationType="fade" transparent>
+        <View style={[styles.modalOverlay, { justifyContent: 'center', padding: 24 }]}>
+          <View style={[styles.modalContent, { borderRadius: 24 }]}>
+            <Text style={[styles.modalTitle, { marginBottom: 8 }]}>Supprimer ce rendez-vous ?</Text>
+            <Text style={{ color: COLORS.textSecondary, fontSize: 14, marginBottom: 20 }}>
+              « {deleteTarget?.title} » sera retiré de votre agenda partagé.
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity
+                style={[styles.saveBtn, { flex: 1, marginTop: 0, marginBottom: 0, backgroundColor: COLORS.surfaceElevated }]}
+                onPress={() => setDeleteTarget(null)}
+                disabled={deleting}
+              >
+                <Text style={[styles.saveBtnText, { color: COLORS.textPrimary }]}>Annuler</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.saveBtn, { flex: 1, marginTop: 0, marginBottom: 0, backgroundColor: '#ef4444' }]}
+                onPress={confirmDeleteEvent}
+                disabled={deleting}
+              >
+                {deleting ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={[styles.saveBtnText, { color: '#fff' }]}>Supprimer</Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>

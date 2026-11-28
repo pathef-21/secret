@@ -41,6 +41,7 @@ export default function MemoriesScreen() {
   // Detail Modal
   const [selectedMemory, setSelectedMemory] = useState(null);
   const [commentText, setCommentText] = useState('');
+  const [detailError, setDetailError] = useState('');
 
   const fetchMemories = useCallback(async () => {
     try {
@@ -136,6 +137,7 @@ export default function MemoriesScreen() {
 
   const handleAddComment = async () => {
     if (!commentText.trim() || !selectedMemory) return;
+    setDetailError('');
     try {
       await api.post('/memories/comments/', {
         memory: selectedMemory.id,
@@ -147,7 +149,9 @@ export default function MemoriesScreen() {
       setSelectedMemory(res.data);
       fetchMemories();
     } catch (e) {
-      Alert.alert('Erreur', 'Impossible d’ajouter le commentaire.');
+      const msg = 'Impossible d’ajouter le commentaire.';
+      setDetailError(msg);
+      if (Platform.OS !== 'web') Alert.alert('Erreur', msg);
     }
   };
 
@@ -182,10 +186,20 @@ export default function MemoriesScreen() {
         renderItem={({ item }) => (
           <TouchableOpacity
             style={styles.memoryCard}
-            onPress={() => setSelectedMemory(item)}
+            onPress={() => {
+              setDetailError('');
+              setSelectedMemory(item);
+            }}
             activeOpacity={0.85}
           >
-            <Image source={{ uri: resolveMediaUrl(item.media_file) }} style={styles.cardImage} />
+            {item.media_type === 'video' ? (
+              <View style={[styles.cardImage, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#1E1420' }]}>
+                <Ionicons name="play-circle" size={44} color={COLORS.primaryRose} />
+                <Text style={{ color: COLORS.textSecondary, fontSize: 11, marginTop: 4 }}>Vidéo</Text>
+              </View>
+            ) : (
+              <Image source={{ uri: resolveMediaUrl(item.media_file) }} style={styles.cardImage} />
+            )}
             <View style={styles.cardInfo}>
               <Text style={styles.cardTitle} numberOfLines={1}>
                 {item.title}
@@ -298,7 +312,25 @@ export default function MemoriesScreen() {
             <ScrollView showsVerticalScrollIndicator={false}>
               {selectedMemory && (
                 <>
-                  <Image source={{ uri: resolveMediaUrl(selectedMemory.media_file) }} style={styles.detailImage} />
+                  {selectedMemory.media_type === 'video' && Platform.OS === 'web' ? (
+                    <video
+                      src={resolveMediaUrl(selectedMemory.media_file)}
+                      controls
+                      playsInline
+                      style={{
+                        width: '100%',
+                        maxHeight: 280,
+                        borderRadius: 16,
+                        marginBottom: 14,
+                        backgroundColor: '#000',
+                      }}
+                    />
+                  ) : (
+                    <Image source={{ uri: resolveMediaUrl(selectedMemory.media_file) }} style={styles.detailImage} />
+                  )}
+                  {!!detailError && (
+                    <Text style={{ color: '#fca5a5', fontSize: 12, marginBottom: 8 }}>{detailError}</Text>
+                  )}
                   <Text style={styles.detailDate}>
                     🗓️ {selectedMemory.memory_date} {selectedMemory.location ? `• 📍 ${selectedMemory.location}` : ''}
                   </Text>

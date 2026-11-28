@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../src/services/api';
@@ -25,14 +26,21 @@ export default function LettersScreen() {
   const [content, setContent] = useState('');
   const [unlockDate, setUnlockDate] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [modalError, setModalError] = useState('');
+  const [banner, setBanner] = useState(null); // { type: 'info' | 'success' | 'error', text }
 
   // Read letter modal
   const [openedLetter, setOpenedLetter] = useState(null);
 
+  const showBanner = (text, type = 'info') => {
+    setBanner({ text, type });
+    setTimeout(() => setBanner((prev) => (prev?.text === text ? null : prev)), 4500);
+  };
+
   const fetchLetters = useCallback(async () => {
     try {
       const res = await api.get('/surprises/letters/');
-      setLetters(res.data);
+      setLetters(Array.isArray(res.data) ? res.data : (res.data?.results || []));
     } catch (e) {
       console.warn('Failed to fetch letters:', e);
     } finally {
@@ -45,8 +53,11 @@ export default function LettersScreen() {
   }, [fetchLetters]);
 
   const handleCreateLetter = async () => {
+    setModalError('');
     if (!title.trim() || !content.trim()) {
-      Alert.alert('Champs requis', 'Veuillez écrire votre lettre et son titre.');
+      const msg = 'Veuillez écrire votre lettre et son titre.';
+      setModalError(msg);
+      if (Platform.OS !== 'web') Alert.alert('Champs requis', msg);
       return;
     }
 
@@ -65,10 +76,19 @@ export default function LettersScreen() {
       setTitle('');
       setContent('');
       setUnlockDate('');
+      setModalError('');
       fetchLetters();
-      Alert.alert('Envoyée ! 💌', 'Votre lettre a été scellée avec amour pour votre partenaire.');
+      const okMsg = 'Votre lettre a été scellée avec amour pour votre partenaire. 💌';
+      showBanner(okMsg, 'success');
+      if (Platform.OS !== 'web') Alert.alert('Envoyée ! 💌', okMsg);
     } catch (e) {
-      Alert.alert('Erreur', 'Impossible d’envoyer la lettre.');
+      const errData = e?.response?.data;
+      const msg =
+        errData?.detail ||
+        errData?.unlock_at?.[0] ||
+        'Impossible d’envoyer la lettre.';
+      setModalError(msg);
+      if (Platform.OS !== 'web') Alert.alert('Erreur', msg);
     } finally {
       setSubmitting(false);
     }
@@ -76,10 +96,9 @@ export default function LettersScreen() {
 
   const handleOpenLetter = async (letter) => {
     if (!letter.is_unlocked && letter.content_masked) {
-      Alert.alert(
-        'Lettre Scellée 🔒',
-        `Cette lettre ne pourra être découverte qu'à partir du ${new Date(letter.unlock_at).toLocaleDateString('fr-FR')}. Patience mon cœur ! ❤️`
-      );
+      const msg = `Lettre scellée 🔒 : ouverture prévue le ${new Date(letter.unlock_at).toLocaleDateString('fr-FR')}. Patience mon cœur ! ❤️`;
+      showBanner(msg, 'info');
+      if (Platform.OS !== 'web') Alert.alert('Lettre Scellée 🔒', msg);
       return;
     }
 
@@ -114,6 +133,28 @@ export default function LettersScreen() {
           <Text style={styles.writeButtonText}>Écrire une lettre d'amour</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Banner feedback (web & mobile) */}
+      {!!banner && (
+        <View
+          style={{
+            marginHorizontal: 18,
+            marginBottom: 10,
+            padding: 12,
+            borderRadius: 14,
+            backgroundColor:
+              banner.type === 'success'
+                ? 'rgba(74, 222, 128, 0.14)'
+                : 'rgba(242, 167, 198, 0.14)',
+            borderWidth: 1,
+            borderColor: banner.type === 'success' ? '#4ADE80' : COLORS.primaryRose,
+          }}
+        >
+          <Text style={{ color: COLORS.textPrimary, fontSize: 13, textAlign: 'center', fontWeight: '600' }}>
+            {banner.text}
+          </Text>
+        </View>
+      )}
 
       {/* Letters List */}
       <FlatList
@@ -172,6 +213,11 @@ export default function LettersScreen() {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
+              {!!modalError && (
+                <View style={{ backgroundColor: 'rgba(239,68,68,0.16)', borderColor: '#ef4444', borderWidth: 1, borderRadius: 12, padding: 10, marginBottom: 14 }}>
+                  <Text style={{ color: '#fca5a5', fontSize: 13, textAlign: 'center' }}>{modalError}</Text>
+                </View>
+              )}
               <Text style={styles.inputLabel}>Titre de la lettre</Text>
               <TextInput
                 style={styles.textInput}
