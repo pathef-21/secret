@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -43,6 +43,8 @@ export default function HomeScreen() {
   const [instantCaption, setInstantCaption] = useState('');
   const [sendingInstant, setSendingInstant] = useState(false);
   const [instantError, setInstantError] = useState('');
+  const photoInputRef = useRef(null);
+  const videoInputRef = useRef(null);
 
   // One-time Instant viewer modal
   const [viewingInstant, setViewingInstant] = useState(null);
@@ -130,28 +132,109 @@ export default function HomeScreen() {
     }
   }, []);
 
+  const compressWebImage = (file) =>
+    new Promise((resolve) => {
+      try {
+        const img = new window.Image();
+        const objUrl = URL.createObjectURL(file);
+        img.onload = () => {
+          try {
+            const maxDim = 1440;
+            let { width, height } = img;
+            if (width > maxDim || height > maxDim) {
+              if (width >= height) {
+                height = Math.round((height * maxDim) / width);
+                width = maxDim;
+              } else {
+                width = Math.round((width * maxDim) / height);
+                height = maxDim;
+              }
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            canvas.toBlob(
+              (blob) => {
+                URL.revokeObjectURL(objUrl);
+                if (blob) {
+                  const compressedFile = new File([blob], 'instant.jpg', { type: 'image/jpeg' });
+                  resolve({ file: compressedFile, previewUri: URL.createObjectURL(compressedFile) });
+                } else {
+                  resolve({ file, previewUri: URL.createObjectURL(file) });
+                }
+              },
+              'image/jpeg',
+              0.82
+            );
+          } catch {
+            URL.revokeObjectURL(objUrl);
+            resolve({ file, previewUri: URL.createObjectURL(file) });
+          }
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(objUrl);
+          resolve({ file, previewUri: URL.createObjectURL(file) });
+        };
+        img.src = objUrl;
+      } catch {
+        resolve({ file, previewUri: URL.createObjectURL(file) });
+      }
+    });
+
+  const handleWebInputSelected = async (e, mode) => {
+    setInstantError('');
+    const file = e?.target?.files?.[0];
+    if (e?.target) e.target.value = '';
+    if (!file) return;
+    const isVideo = mode === 'video' || (file.type || '').startsWith('video/');
+    if (isVideo) {
+      const previewUri = URL.createObjectURL(file);
+      setInstantAsset({
+        uri: previewUri,
+        file,
+        fileName: file.name || 'instant.mp4',
+        mimeType: file.type || 'video/mp4',
+        type: 'video',
+      });
+    } else {
+      const { file: readyFile, previewUri } = await compressWebImage(file);
+      setInstantAsset({
+        uri: previewUri,
+        file: readyFile,
+        fileName: readyFile.name || 'instant.jpg',
+        mimeType: readyFile.type || 'image/jpeg',
+        type: 'image',
+      });
+    }
+  };
+
   const handleCaptureInstantMedia = async (mode = 'image') => {
     setInstantError('');
     const isVideo = mode === 'video';
 
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
-      // Force live camera capture on mobile browsers (no gallery import)
+      const targetInput = isVideo ? videoInputRef.current : photoInputRef.current;
+      if (targetInput) {
+        targetInput.value = '';
+        targetInput.click();
+        return;
+      }
+      // Fallback attached to body so iOS/Android PWA never garbage-collects it
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = isVideo ? 'video/*' : 'image/*';
       input.setAttribute('capture', 'user');
-      input.onchange = (e) => {
-        const file = e.target?.files?.[0];
-        if (file) {
-          const previewUri = URL.createObjectURL(file);
-          setInstantAsset({
-            uri: previewUri,
-            file,
-            fileName: file.name || (isVideo ? 'instant.mp4' : 'instant.jpg'),
-            mimeType: file.type || (isVideo ? 'video/mp4' : 'image/jpeg'),
-            type: isVideo ? 'video' : 'image',
-          });
-        }
+      input.style.position = 'fixed';
+      input.style.top = '-9999px';
+      input.style.opacity = '0';
+      document.body.appendChild(input);
+      input.onchange = async (ev) => {
+        await handleWebInputSelected(ev, mode);
+        try {
+          document.body.removeChild(input);
+        } catch {}
       };
       input.click();
       return;
@@ -205,7 +288,14 @@ export default function HomeScreen() {
       setBurstKey((k) => k + 1);
       await Promise.all([fetchInstants(), fetchDashboardData()]);
     } catch (e) {
-      setInstantError(e?.response?.data?.detail || 'Impossible d’envoyer cet Instant.');
+      const errData = e?.response?.data;
+      const detail =
+        (typeof errData === 'string' && errData.slice(0, 120)) ||
+        errData?.detail ||
+        errData?.media_file?.[0] ||
+        (e?.response?.status ? `Erreur serveur (${e.response.status})` : null) ||
+        'Impossible d’envoyer cet Instant. Réessaie.';
+      setInstantError(detail);
     } finally {
       setSendingInstant(false);
     }
@@ -913,6 +1003,26 @@ export default function HomeScreen() {
       </Modal>
       <Modal visible={createInstantVisible} animationType="slide" transparent>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.82)', justifyContent: 'flex-end' }}>
+          {Platform.OS === 'web' && (
+            <>
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                capture="user"
+                style={{ display: 'none' }}
+                onChange={(e) => handleWebInputSelected(e, 'image')}
+              />
+              <input
+                ref={videoInputRef}
+                type="file"
+                accept="video/*"
+                capture="user"
+                style={{ display: 'none' }}
+                onChange={(e) => handleWebInputSelected(e, 'video')}
+              />
+            </>
+          )}
           <View style={{ backgroundColor: COLORS.surface, borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, borderWidth: 1, borderColor: COLORS.surfaceBorder }}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
               <Text style={{ color: COLORS.primaryRose, fontSize: 19, fontWeight: '800' }}>
