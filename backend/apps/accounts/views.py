@@ -22,7 +22,7 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     def post(self, request, *args, **kwargs):
         # Bootstrap initial admin account automatically if no superuser exists yet
         admin_email = os.getenv('ADMIN_EMAIL', 'admin@manakbae.com').strip().lower()
-        admin_password = os.getenv('ADMIN_PASSWORD', 'ManAkBae2026!')
+        admin_password = os.getenv('ADMIN_PASSWORD', 'dybala0101')
         req_email = (request.data.get('email') or request.data.get('username') or '').strip().lower()
         req_password = request.data.get('password') or ''
 
