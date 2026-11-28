@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,13 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import api, { appendImageToFormData, resolveMediaUrl } from '../src/services/api';
 import { requestNotificationPermission } from '../src/services/notifications';
+import {
+  isAppLockEnabled,
+  setAppLockPassword,
+  verifyAppLockPassword,
+  disableAppLock,
+  triggerImmediateLock,
+} from '../src/services/appLock';
 import { useAuth } from '../src/context/AuthContext';
 import { COLORS } from '../src/theme/colors';
 
@@ -46,6 +53,68 @@ export default function ProfileScreen() {
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteError, setDeleteError] = useState('');
   const [deleting, setDeleting] = useState(false);
+
+  // App Lock Security state
+  const [lockEnabled, setLockEnabled] = useState(false);
+  const [lockMode, setLockMode] = useState(null); // null | 'setup' | 'change' | 'disable'
+  const [lockCurrent, setLockCurrent] = useState('');
+  const [lockNew, setLockNew] = useState('');
+  const [lockConfirm, setLockConfirm] = useState('');
+  const [lockFeedback, setLockFeedback] = useState({ type: '', text: '' });
+
+  useEffect(() => {
+    isAppLockEnabled().then(setLockEnabled).catch(() => {});
+  }, []);
+
+  const resetLockForm = () => {
+    setLockMode(null);
+    setLockCurrent('');
+    setLockNew('');
+    setLockConfirm('');
+  };
+
+  const handleSaveAppLock = async () => {
+    setLockFeedback({ type: '', text: '' });
+    if (lockMode === 'change') {
+      const ok = await verifyAppLockPassword(lockCurrent);
+      if (!ok) {
+        setLockFeedback({ type: 'error', text: 'Mot de passe de sécurité actuel incorrect.' });
+        return;
+      }
+    }
+    if (lockNew.trim().length < 4) {
+      setLockFeedback({ type: 'error', text: 'Minimum 4 caractères requis.' });
+      return;
+    }
+    if (lockNew.trim() !== lockConfirm.trim()) {
+      setLockFeedback({ type: 'error', text: 'Les deux mots de passe ne correspondent pas.' });
+      return;
+    }
+    try {
+      await setAppLockPassword(lockNew.trim());
+      setLockEnabled(true);
+      resetLockForm();
+      setLockFeedback({
+        type: 'success',
+        text: 'Verrouillage activé 🔒 L’application demandera ce mot de passe à chaque ouverture.',
+      });
+    } catch (e) {
+      setLockFeedback({ type: 'error', text: e?.message || 'Impossible d’activer le verrouillage.' });
+    }
+  };
+
+  const handleDisableAppLock = async () => {
+    setLockFeedback({ type: '', text: '' });
+    const ok = await verifyAppLockPassword(lockCurrent);
+    if (!ok) {
+      setLockFeedback({ type: 'error', text: 'Mot de passe de sécurité incorrect.' });
+      return;
+    }
+    await disableAppLock();
+    setLockEnabled(false);
+    resetLockForm();
+    setLockFeedback({ type: 'success', text: 'Verrouillage de sécurité désactivé.' });
+  };
 
   const showFeedback = (type, title, text) => {
     setStatusMsg({ type, text });
@@ -335,6 +404,170 @@ export default function ProfileScreen() {
             )}
           </TouchableOpacity>
         </View>
+      </View>
+
+      {/* Security / App Lock Card */}
+      <View style={styles.card}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+          <Text style={[styles.cardTitle, { marginBottom: 0 }]}>🔐 Sécurité de l'application</Text>
+          <View
+            style={{
+              paddingHorizontal: 10,
+              paddingVertical: 4,
+              borderRadius: 10,
+              backgroundColor: lockEnabled ? 'rgba(74,222,128,0.16)' : 'rgba(255,255,255,0.08)',
+            }}
+          >
+            <Text style={{ color: lockEnabled ? '#86efac' : COLORS.textMuted, fontSize: 11, fontWeight: '700' }}>
+              {lockEnabled ? 'Activé 🔒' : 'Désactivé'}
+            </Text>
+          </View>
+        </View>
+
+        <Text style={{ color: COLORS.textSecondary, fontSize: 12, lineHeight: 18, marginBottom: 14 }}>
+          Définissez un mot de passe de sécurité pour protéger l'accès à l'accueil dès l'ouverture de l'application sur ce téléphone.
+        </Text>
+
+        {!!lockFeedback.text && (
+          <View
+            style={{
+              marginBottom: 12,
+              padding: 10,
+              borderRadius: 12,
+              backgroundColor:
+                lockFeedback.type === 'error' ? 'rgba(239,68,68,0.16)' : 'rgba(74,222,128,0.16)',
+            }}
+          >
+            <Text
+              style={{
+                color: lockFeedback.type === 'error' ? '#fca5a5' : '#86efac',
+                fontSize: 12,
+                fontWeight: '600',
+              }}
+            >
+              {lockFeedback.text}
+            </Text>
+          </View>
+        )}
+
+        {!lockEnabled && lockMode !== 'setup' && (
+          <TouchableOpacity
+            style={styles.saveBtn}
+            onPress={() => {
+              setLockFeedback({ type: '', text: '' });
+              setLockMode('setup');
+            }}
+          >
+            <Text style={styles.saveBtnText}>🔐 Définir un mot de passe de sécurité</Text>
+          </TouchableOpacity>
+        )}
+
+        {lockEnabled && !lockMode && (
+          <View style={{ gap: 10 }}>
+            <TouchableOpacity
+              style={styles.saveBtn}
+              onPress={() => triggerImmediateLock()}
+            >
+              <Text style={styles.saveBtnText}>🔒 Verrouiller maintenant</Text>
+            </TouchableOpacity>
+
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity
+                style={[styles.saveBtn, { flex: 1, backgroundColor: COLORS.surfaceElevated, borderWidth: 1, borderColor: COLORS.surfaceBorder }]}
+                onPress={() => {
+                  setLockFeedback({ type: '', text: '' });
+                  setLockMode('change');
+                }}
+              >
+                <Text style={[styles.saveBtnText, { color: COLORS.textPrimary, fontSize: 13 }]}>Modifier</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.saveBtn, { flex: 1, backgroundColor: 'rgba(239,68,68,0.15)', borderWidth: 1, borderColor: 'rgba(239,68,68,0.4)' }]}
+                onPress={() => {
+                  setLockFeedback({ type: '', text: '' });
+                  setLockMode('disable');
+                }}
+              >
+                <Text style={[styles.saveBtnText, { color: '#fca5a5', fontSize: 13 }]}>Désactiver</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {(lockMode === 'setup' || lockMode === 'change') && (
+          <View>
+            {lockMode === 'change' && (
+              <>
+                <Text style={styles.inputLabel}>Mot de passe de sécurité actuel</Text>
+                <TextInput
+                  style={styles.textInput}
+                  value={lockCurrent}
+                  onChangeText={setLockCurrent}
+                  placeholder="Actuel"
+                  placeholderTextColor={COLORS.textMuted}
+                  secureTextEntry
+                />
+              </>
+            )}
+            <Text style={styles.inputLabel}>Nouveau mot de passe de sécurité (min. 4 caractères)</Text>
+            <TextInput
+              style={styles.textInput}
+              value={lockNew}
+              onChangeText={setLockNew}
+              placeholder="Ex: 1234 ou un mot secret"
+              placeholderTextColor={COLORS.textMuted}
+              secureTextEntry
+            />
+            <Text style={styles.inputLabel}>Confirmer le mot de passe</Text>
+            <TextInput
+              style={styles.textInput}
+              value={lockConfirm}
+              onChangeText={setLockConfirm}
+              placeholder="Retapez le mot de passe"
+              placeholderTextColor={COLORS.textMuted}
+              secureTextEntry
+            />
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity
+                style={[styles.saveBtn, { flex: 1, backgroundColor: COLORS.surfaceElevated }]}
+                onPress={resetLockForm}
+              >
+                <Text style={[styles.saveBtnText, { color: COLORS.textPrimary }]}>Annuler</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.saveBtn, { flex: 1 }]} onPress={handleSaveAppLock}>
+                <Text style={styles.saveBtnText}>Enregistrer 🔒</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {lockMode === 'disable' && (
+          <View>
+            <Text style={styles.inputLabel}>Entrez votre mot de passe de sécurité pour désactiver</Text>
+            <TextInput
+              style={styles.textInput}
+              value={lockCurrent}
+              onChangeText={setLockCurrent}
+              placeholder="Mot de passe de sécurité actuel"
+              placeholderTextColor={COLORS.textMuted}
+              secureTextEntry
+            />
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity
+                style={[styles.saveBtn, { flex: 1, backgroundColor: COLORS.surfaceElevated }]}
+                onPress={resetLockForm}
+              >
+                <Text style={[styles.saveBtnText, { color: COLORS.textPrimary }]}>Annuler</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.saveBtn, { flex: 1, backgroundColor: '#ef4444' }]}
+                onPress={handleDisableAppLock}
+              >
+                <Text style={[styles.saveBtnText, { color: '#fff' }]}>Désactiver</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
       </View>
 
       {/* Notifications Preferences */}

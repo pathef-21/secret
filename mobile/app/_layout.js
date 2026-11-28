@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../src/context/AuthContext';
+import AppLockGate from '../src/components/AppLockGate';
 import { COLORS } from '../src/theme/colors';
 
 function RootLayoutNav() {
@@ -75,6 +76,7 @@ function RootLayoutNav() {
           }}
         />
       </Stack>
+      <AppLockGate />
     </>
   );
 }
