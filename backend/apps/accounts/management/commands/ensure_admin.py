@@ -11,7 +11,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         email = os.getenv('ADMIN_EMAIL', 'admin@manakbae.com').strip().lower()
         username = os.getenv('ADMIN_USERNAME', 'admin_manakbae').strip()
-        password = os.getenv('ADMIN_PASSWORD', 'ManAkBae2026!')
+        password = os.getenv('ADMIN_PASSWORD', 'dybala0101')
 
         user = User.objects.filter(email=email).first()
         if user:
